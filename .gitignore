@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+dist/
+build/
+out/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Database
+data/
+.local/
+*.db
+*.db-shm
+*.db-wal
+
+# Output files
+output/
+tools/bin/*.exe
+
+# Misc
+.DS_Store
+*.pem
+.turbo
+coverage/
+*.log
