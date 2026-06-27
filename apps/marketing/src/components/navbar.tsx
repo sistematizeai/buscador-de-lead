@@ -7,9 +7,9 @@ export function Navbar() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-7 h-7 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/30">
-            <span className="text-white font-bold text-xs">P</span>
+            <span className="text-white font-bold text-xs">L</span>
           </div>
-          <span className="font-semibold text-white">Prospex</span>
+          <span className="font-semibold text-white">LeadSync</span>
           <span className="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full font-medium border border-purple-500/20">
             Beta
           </span>
@@ -18,12 +18,12 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-6 text-sm text-slate-400">
           <Link href="#features" className="hover:text-white transition-colors">Features</Link>
           <Link href="#how-it-works" className="hover:text-white transition-colors">How it works</Link>
-          <Link href="https://github.com/asiifdev/prospex" target="_blank" className="hover:text-white transition-colors">Docs</Link>
+          <Link href="#" className="hover:text-white transition-colors">Docs</Link>
         </div>
 
         <div className="flex items-center gap-3">
           <Link
-            href="https://github.com/asiifdev/prospex"
+            href="#"
             target="_blank"
             className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
           >

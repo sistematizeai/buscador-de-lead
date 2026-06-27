@@ -47,7 +47,7 @@ export class GosomGoogleMapsProvider implements ScraperProvider {
       throw new Error(`Binário do Gosom não encontrado em ${this.binaryPath}`);
     }
 
-    const tempDir = await mkdtemp(join(tmpdir(), "prospex-gosom-"));
+    const tempDir = await mkdtemp(join(tmpdir(), "leadsync-gosom-"));
     const inputPath = join(tempDir, "queries.txt");
     const resultsPath = join(tempDir, "results.json");
 

@@ -5,7 +5,7 @@ const API_ROOT = API_URL.replace(/\/$/, "").endsWith("/api")
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("prospex_token");
+  return localStorage.getItem("leadsync_token");
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {

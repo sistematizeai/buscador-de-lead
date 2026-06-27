@@ -18,13 +18,13 @@ export function OpenSource() {
         </h2>
 
         <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-          Prospex is free and open source. Self-host it on your own server, customize it for your needs,
+          LeadSync is free and customizable. Self-host it on your own server, adapt it for your needs,
           or contribute to make it better for the whole community.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
           <Link
-            href="https://github.com/asiifdev/prospex"
+            href="#"
             target="_blank"
             className="flex items-center gap-2 bg-white text-slate-900 px-6 py-3 rounded-xl font-semibold hover:bg-slate-100 transition-all text-sm shadow-lg hover:-translate-y-0.5"
           >
@@ -58,7 +58,7 @@ export function OpenSource() {
           </div>
           <pre className="text-sm font-mono leading-relaxed">
             <span className="text-slate-500"># Clone &amp; install{"\n"}</span>
-            <span className="text-emerald-400">git clone</span><span className="text-slate-300"> github.com/asiifdev/prospex{"\n"}</span>
+            <span className="text-emerald-400">git clone</span><span className="text-slate-300"> your-repo/leadsync{"\n"}</span>
             <span className="text-emerald-400">pnpm install{"\n\n"}</span>
             <span className="text-slate-500"># Start infrastructure{"\n"}</span>
             <span className="text-emerald-400">docker compose up</span><span className="text-slate-300"> -d{"\n\n"}</span>

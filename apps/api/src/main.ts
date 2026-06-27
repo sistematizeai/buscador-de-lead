@@ -11,7 +11,7 @@ async function bootstrap() {
   app.enableCors({ origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000" });
 
   const config = new DocumentBuilder()
-    .setTitle("Prospex API")
+    .setTitle("LeadSync API")
     .setDescription("AI-powered GTM automation platform API")
     .setVersion("1.0")
     .addBearerAuth()
@@ -22,7 +22,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Prospex API running on http://localhost:${port}`);
+  console.log(`LeadSync API running on http://localhost:${port}`);
   console.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }
 

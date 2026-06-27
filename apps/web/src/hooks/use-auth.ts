@@ -2,8 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-const TOKEN_KEY = "prospex_token";
-const USER_KEY = "prospex_user";
+const TOKEN_KEY = "leadsync_token";
+const USER_KEY = "leadsync_user";
 
 export interface AuthUser {
   id: string;

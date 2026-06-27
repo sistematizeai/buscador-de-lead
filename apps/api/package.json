@@ -1,5 +1,5 @@
 {
-  "name": "@prospex/api",
+  "name": "@leadsync/api",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -16,8 +16,8 @@
     "@nestjs/platform-express": "^10.4.7",
     "@nestjs/swagger": "^8.0.7",
     "@prisma/client": "^6.0.0",
-    "@prospex/database": "workspace:*",
-    "@prospex/types": "workspace:*",
+    "@leadsync/database": "workspace:*",
+    "@leadsync/types": "workspace:*",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.17.0",
     "playwright": "^1.48.0",

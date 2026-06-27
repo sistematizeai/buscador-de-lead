@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeGosomEntries } from "./gosom-output.normalizer";
 
 describe("normalizeGosomEntries", () => {
-  it("maps rich gosom Google Maps entries into Prospex scraped businesses", () => {
+  it("maps rich gosom Google Maps entries into LeadSync scraped businesses", () => {
     const entries = [
       {
         title: "Padaria Central",

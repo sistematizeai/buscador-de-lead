@@ -8,7 +8,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("prospex_token");
+    const token = localStorage.getItem("leadsync_token");
     if (!token) {
       router.replace("/login");
     } else {
