@@ -1,5 +1,5 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-const API_ROOT = API_URL.replace(/\/$/, "").endsWith("/api")
+export const API_ROOT = API_URL.replace(/\/$/, "").endsWith("/api")
   ? API_URL.replace(/\/$/, "")
   : `${API_URL.replace(/\/$/, "")}/api`;
 

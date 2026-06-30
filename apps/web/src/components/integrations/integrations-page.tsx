@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHero } from "@/components/ui/page-hero";
+import { API_ROOT } from "@/lib/api";
 
 const integrations = [
   {
@@ -102,7 +103,7 @@ export function IntegrationsPage() {
           </div>
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
             <Button size="sm" variant="secondary" asChild className="w-full rounded-xl bg-white text-purple-700 hover:bg-purple-50 sm:w-auto">
-              <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/docs`} target="_blank" rel="noreferrer">
+              <a href={`${API_ROOT}/docs`} target="_blank" rel="noreferrer">
                 Docs Swagger
               </a>
             </Button>

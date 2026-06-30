@@ -28,6 +28,8 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4o-mini
+      - key: OPENAI_MAX_TOKENS
+        value: 1000
       - key: SCRAPER_PROVIDER
         value: gosom
       - key: GOSOM_BINARY_PATH
@@ -42,3 +44,7 @@ services:
         value: 6
       - key: SCRAPER_ALLOW_MOCK_FALLBACK
         value: false
+      - key: INSTAGRAM_LOOKUP_ENABLED
+        value: true
+      - key: INSTAGRAM_LOOKUP_MAX_PER_CAMPAIGN
+        value: 100

@@ -44,6 +44,7 @@ Variáveis de IA no Render:
 OPENAI_API_KEY=<sua chave do provedor>
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
 OPENAI_MODEL=gpt-4o-mini
+OPENAI_MAX_TOKENS=1000
 ```
 
 Variáveis de busca no Render:
@@ -56,6 +57,8 @@ GOSOM_DEPTH=1
 SCRAPER_QUERY_RETRIES=2
 SCRAPER_MAX_ROUNDS=6
 SCRAPER_ALLOW_MOCK_FALLBACK=false
+INSTAGRAM_LOOKUP_ENABLED=true
+INSTAGRAM_LOOKUP_MAX_PER_CAMPAIGN=100
 ```
 
 Observação crítica: o binário local `tools/bin/gosom-google-maps-scraper.exe` é Windows e não roda no Render Linux. Por isso o `apps/api/Dockerfile` baixa o binário oficial Linux da release `v1.16.1` do Gosom para `tools/bin/gosom-google-maps-scraper`. O Dockerfile também executa `tools/bin/gosom-google-maps-scraper --help` no build para falhar cedo se o binário não estiver funcional.
