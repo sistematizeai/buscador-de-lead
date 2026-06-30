@@ -26,7 +26,9 @@ Configuração importante:
 - Dockerfile: `apps/api/Dockerfile`
 - Health check: `/api/health`
 - Start command: definido no Dockerfile
-- Schema do banco: `preDeployCommand: pnpm --filter @leadsync/database db:push`
+- Schema do banco: rode `pnpm --filter @leadsync/database db:push` localmente antes do primeiro deploy ou use um plano Render que suporte pre-deploy command.
+
+ObservaÃ§Ã£o: o plano Free do Render nÃ£o suporta `preDeployCommand`. Por isso o `render.yaml` fica compatÃ­vel com Free e o schema Ã© validado/atualizado fora do deploy automÃ¡tico.
 
 Variáveis obrigatórias no Render:
 

@@ -8,7 +8,6 @@ services:
     region: oregon
     autoDeployTrigger: commit
     healthCheckPath: /api/health
-    preDeployCommand: pnpm --filter @leadsync/database db:push
     envVars:
       - key: NODE_ENV
         value: production
