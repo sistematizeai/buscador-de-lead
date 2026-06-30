@@ -28,54 +28,80 @@ export class ExportService {
 
   toCsv(leads: Awaited<ReturnType<typeof this.getLeads>>): string {
     const headers = [
-      "Nome", "Endereço", "Telefone", "Website", "Avaliação", "Score", "Prioridade",
-      "Status CRM", "Campanha", "Tem site", "Coletado em",
+      "Nome",
+      "Endereço",
+      "Telefone",
+      "Website",
+      "Instagram",
+      "Avaliação",
+      "Score",
+      "Prioridade",
+      "Status CRM",
+      "Campanha",
+      "Tem site",
+      "Coletado em",
     ];
-    const escape = (v: unknown) => {
-      const s = v == null ? "" : String(v);
-      return s.includes(",") || s.includes('"') || s.includes("\n")
-        ? `"${s.replace(/"/g, '""')}"` : s;
+    const escape = (value: unknown) => {
+      const text = value == null ? "" : String(value);
+      return text.includes(",") || text.includes('"') || text.includes("\n")
+        ? `"${text.replace(/"/g, '""')}"`
+        : text;
     };
-    const rows = leads.map((l) => [
-      l.name, l.address, l.phone, l.website, l.rating, l.score, PRIORITY_LABELS[l.priority] ?? l.priority,
-      CRM_LABELS[l.crmStatus] ?? l.crmStatus, l.campaign?.name ?? "", l.hasWebsite ? "Sim" : "Não",
-      new Date(l.scrapedAt).toISOString(),
-    ].map(escape).join(","));
+    const rows = leads.map((lead) =>
+      [
+        lead.name,
+        lead.address,
+        lead.phone,
+        lead.website,
+        lead.instagramUrl,
+        lead.rating,
+        lead.score,
+        PRIORITY_LABELS[lead.priority] ?? lead.priority,
+        CRM_LABELS[lead.crmStatus] ?? lead.crmStatus,
+        lead.campaign?.name ?? "",
+        lead.hasWebsite ? "Sim" : "Não",
+        new Date(lead.scrapedAt).toISOString(),
+      ]
+        .map(escape)
+        .join(","),
+    );
     return [headers.join(","), ...rows].join("\n");
   }
 
   toJson(leads: Awaited<ReturnType<typeof this.getLeads>>) {
-    return leads.map((l) => ({
-      id: l.id,
-      name: l.name,
-      address: l.address,
-      phone: l.phone,
-      website: l.website,
-      rating: l.rating,
-      score: l.score,
-      priority: PRIORITY_LABELS[l.priority] ?? l.priority,
-      crmStatus: CRM_LABELS[l.crmStatus] ?? l.crmStatus,
-      crmNotes: l.crmNotes,
-      hasWebsite: l.hasWebsite,
-      campaign: l.campaign?.name,
-      marketingContent: l.marketingContent,
-      scrapedAt: l.scrapedAt,
+    return leads.map((lead) => ({
+      id: lead.id,
+      name: lead.name,
+      address: lead.address,
+      phone: lead.phone,
+      website: lead.website,
+      instagramUrl: lead.instagramUrl,
+      rating: lead.rating,
+      score: lead.score,
+      priority: PRIORITY_LABELS[lead.priority] ?? lead.priority,
+      crmStatus: CRM_LABELS[lead.crmStatus] ?? lead.crmStatus,
+      crmNotes: lead.crmNotes,
+      hasWebsite: lead.hasWebsite,
+      campaign: lead.campaign?.name,
+      marketingContent: lead.marketingContent,
+      scrapedAt: lead.scrapedAt,
     }));
   }
 
   toVCard(leads: Awaited<ReturnType<typeof this.getLeads>>): string {
     return leads
-      .filter((l) => l.phone || l.email)
-      .map((l) => {
+      .filter((lead) => lead.phone || lead.email)
+      .map((lead) => {
         const lines = [
           "BEGIN:VCARD",
           "VERSION:3.0",
-          `FN:${l.name}`,
-          l.phone ? `TEL;TYPE=WORK:${l.phone}` : null,
-          l.email ? `EMAIL;TYPE=WORK:${l.email}` : null,
-          l.address ? `ADR;TYPE=WORK:;;${l.address};;;;` : null,
-          l.website ? `URL:${l.website.startsWith("http") ? l.website : `https://${l.website}`}` : null,
-          `NOTE:Score: ${l.score} | Prioridade: ${PRIORITY_LABELS[l.priority] ?? l.priority} | CRM: ${CRM_LABELS[l.crmStatus] ?? l.crmStatus}`,
+          `FN:${lead.name}`,
+          lead.phone ? `TEL;TYPE=WORK:${lead.phone}` : null,
+          lead.email ? `EMAIL;TYPE=WORK:${lead.email}` : null,
+          lead.address ? `ADR;TYPE=WORK:;;${lead.address};;;;` : null,
+          lead.website ? `URL:${lead.website.startsWith("http") ? lead.website : `https://${lead.website}`}` : null,
+          lead.instagramUrl ? `X-SOCIALPROFILE;TYPE=instagram:${lead.instagramUrl}` : null,
+          `NOTE:Score: ${lead.score} | Prioridade: ${PRIORITY_LABELS[lead.priority] ?? lead.priority} | CRM: ${CRM_LABELS[lead.crmStatus] ?? lead.crmStatus}${lead.instagramUrl ? ` | Instagram: ${lead.instagramUrl}` : ""}`,
           "END:VCARD",
         ];
         return lines.filter(Boolean).join("\r\n");

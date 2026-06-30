@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Phone, Globe, MapPin, Star, ChevronRight, Loader2, Users } from "lucide-react";
+import { Phone, Globe, MapPin, Star, ChevronRight, Loader2, Users, Instagram } from "lucide-react";
 import type { Lead } from "@/hooks/use-leads";
 import { crmStatusLabel, priorityLabel } from "@/lib/labels";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -67,35 +67,38 @@ export function LeadsTable({ leads, loading }: Props) {
       {leads.map((lead) => (
         <div
           key={lead.id}
-          className="flex cursor-pointer items-center gap-4 px-6 py-4 transition-colors hover:bg-slate-50"
+          className="flex cursor-pointer flex-col gap-3 px-4 py-4 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-4 sm:px-6"
           onClick={handleRowClick(lead.id)}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-sm shadow-blue-500/20">
-            <span className="text-white font-bold text-sm">{lead.name.charAt(0)}</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-              <span className="truncate text-sm font-semibold text-slate-950">{lead.name}</span>
-              <PriorityBadge priority={lead.priority} />
-              <CrmBadge status={lead.crmStatus} />
+          <div className="flex w-full min-w-0 gap-3 sm:flex-1 sm:gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-sm shadow-blue-500/20">
+              <span className="text-sm font-bold text-white">{lead.name.charAt(0)}</span>
             </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-              {lead.address && (
-                <span className="flex items-center gap-1 truncate max-w-[200px]">
-                  <MapPin className="w-3 h-3 flex-shrink-0" />{lead.address}
-                </span>
-              )}
-              {lead.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.phone}</span>}
-              {lead.website && <span className="flex items-center gap-1"><Globe className="w-3 h-3" />{lead.website}</span>}
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <span className="min-w-0 break-words text-sm font-semibold text-slate-950 sm:truncate">{lead.name}</span>
+                <PriorityBadge priority={lead.priority} />
+                <CrmBadge status={lead.crmStatus} />
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                {lead.address && (
+                  <span className="flex min-w-0 items-center gap-1 break-words sm:max-w-[240px] sm:truncate">
+                    <MapPin className="h-3 w-3 flex-shrink-0" />{lead.address}
+                  </span>
+                )}
+                {lead.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</span>}
+                {lead.website && <span className="flex min-w-0 items-center gap-1 break-all"><Globe className="h-3 w-3" />{lead.website}</span>}
+                {lead.instagramUrl && <span className="flex items-center gap-1 text-pink-600"><Instagram className="h-3 w-3" />Instagram</span>}
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex w-full flex-shrink-0 items-center justify-between gap-3 pl-[3.25rem] sm:w-auto sm:justify-end sm:pl-0">
             {lead.rating && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Star className="w-3 h-3 text-amber-500" />{lead.rating}
+                <Star className="h-3 w-3 text-amber-500" />{lead.rating}
               </span>
             )}
-            <div className="text-right hidden sm:block">
+            <div className="text-right">
               <div className="text-sm font-bold text-purple-600">{lead.score}</div>
               <div className="text-[10px] text-muted-foreground">Score</div>
             </div>
@@ -112,7 +115,7 @@ export function LeadsTable({ leads, loading }: Props) {
       ))}
 
       <Dialog open={!!selectedLeadId} onOpenChange={(open) => !open && setSelectedLeadId(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-4xl border border-zinc-800 bg-zinc-950/95 backdrop-blur-md">
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-5xl overflow-y-auto border-slate-200 bg-white p-0 text-slate-950 shadow-2xl shadow-slate-950/25 sm:w-full">
           {selectedLeadId && <LeadDetail id={selectedLeadId} isModal />}
         </DialogContent>
       </Dialog>

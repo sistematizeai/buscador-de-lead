@@ -42,7 +42,7 @@ export function RegisterForm() {
               {error}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-slate-300 text-sm">Nome completo</Label>
               <Input id="name" placeholder="Seu nome" value={form.name} onChange={set("name")}

@@ -2,13 +2,14 @@ import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+import { buildCorsOptions } from "./config/cors";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix("api");
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
-  app.enableCors({ origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000" });
+  app.enableCors(buildCorsOptions());
 
   const config = new DocumentBuilder()
     .setTitle("LeadSync API")

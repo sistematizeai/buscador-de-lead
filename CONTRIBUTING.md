@@ -21,7 +21,7 @@ pnpm install
 # Copy and configure env
 cp .env.example apps/api/.env
 cp .env.example packages/database/.env
-# Edit apps/api/.env with DATABASE_URL, JWT_SECRET, OPENAI_API_KEY
+# Edit apps/api/.env with DATABASE_URL, DIRECT_URL, JWT_SECRET, OPENAI_API_KEY
 
 # Start infrastructure
 docker compose up -d

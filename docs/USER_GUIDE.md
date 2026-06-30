@@ -49,7 +49,8 @@ Edit `apps/api/.env` minimal dengan:
 
 ```env
 DATABASE_URL="postgresql://prospex:prospex@localhost:5432/prospex"
-OPENAI_API_KEY=sk-your-key-here   # boleh dikosongkan, AI akan pakai mock
+DIRECT_URL="postgresql://prospex:prospex@localhost:5432/prospex"
+OPENAI_API_KEY=   # boleh dikosongkan, AI akan pakai mock
 ```
 
 ### Jalankan infrastruktur
@@ -60,6 +61,7 @@ docker compose up -d
 
 # Push database schema
 pnpm --filter @prospex/database db:push
+pnpm db:health
 ```
 
 ### Jalankan aplikasi
@@ -87,7 +89,7 @@ Masuk ke **Settings → AI Configuration**.
 ### OpenAI
 
 ```
-API Key  : sk-proj-...
+API Key  : configure somente no backend
 Model    : gpt-4o-mini
 Base URL : (kosongkan)
 ```
@@ -95,7 +97,7 @@ Base URL : (kosongkan)
 ### OpenRouter (akses Claude, Gemini, Llama, dll.)
 
 ```
-API Key  : sk-or-v1-...
+API Key  : configure somente no backend
 Model    : anthropic/claude-haiku-4-5
 Base URL : https://openrouter.ai/api/v1
 ```

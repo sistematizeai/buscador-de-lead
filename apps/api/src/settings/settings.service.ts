@@ -15,8 +15,10 @@ export class SettingsService {
   ) {}
 
   async getRuntimeStatus(workspaceId?: string) {
-    const provider = this.config.get<string>("SCRAPER_PROVIDER") || "auto";
+    const provider = (this.config.get<string>("SCRAPER_PROVIDER") || "auto").toLowerCase();
     const gosomBinaryPath = resolveGosomBinaryPath(this.config.get<string>("GOSOM_BINARY_PATH"));
+    const gosomAvailable = existsSync(gosomBinaryPath);
+    const scraperStatus = this.getScraperStatus(provider, gosomAvailable, gosomBinaryPath);
     const envOpenAiKey = this.config.get<string>("OPENAI_API_KEY") || "";
     const envOpenAiModel = this.config.get<string>("OPENAI_MODEL") || "gpt-4o-mini";
     const jwtSecret = this.config.get<string>("JWT_SECRET") || "";
@@ -42,12 +44,7 @@ export class SettingsService {
         ok: databaseOk,
         message: databaseMessage,
       },
-      scraper: {
-        ok: provider === "gosom" && existsSync(gosomBinaryPath),
-        provider,
-        binaryPath: gosomBinaryPath,
-        message: existsSync(gosomBinaryPath) ? "Binário do Gosom encontrado" : "Binário do Gosom não encontrado",
-      },
+      scraper: scraperStatus,
       auth: {
         ok: jwtSecret.length >= 32,
         message: jwtSecret.length >= 32 ? "Segredo JWT configurado" : "Segredo JWT ausente ou muito curto",
@@ -67,7 +64,11 @@ export class SettingsService {
   }
 
   async getIntegrations(workspaceId = DEFAULT_WORKSPACE_ID) {
-    return this.prisma.integration.findMany({ where: { workspaceId } });
+    const integrations = await this.prisma.integration.findMany({ where: { workspaceId } });
+    return integrations.map((integration) => ({
+      ...integration,
+      config: this.sanitizeIntegrationConfig(integration.config as Record<string, string> | null),
+    }));
   }
 
   async upsertIntegration(
@@ -77,10 +78,20 @@ export class SettingsService {
     workspaceId = DEFAULT_WORKSPACE_ID,
   ) {
     const existing = await this.prisma.integration.findFirst({ where: { workspaceId, type } });
+    const nextConfig = this.mergePrivateIntegrationConfig(
+      existing?.config as Record<string, string> | undefined,
+      config,
+    );
+
     if (existing) {
-      return this.prisma.integration.update({ where: { id: existing.id }, data: { config, enabled: true } });
+      const integration = await this.prisma.integration.update({
+        where: { id: existing.id },
+        data: { config: nextConfig, enabled: true },
+      });
+      return this.sanitizeIntegration(integration);
     }
-    return this.prisma.integration.create({ data: { type, name, config, workspaceId } });
+    const integration = await this.prisma.integration.create({ data: { type, name, config: nextConfig, workspaceId } });
+    return this.sanitizeIntegration(integration);
   }
 
   async listApiKeys(workspaceId = DEFAULT_WORKSPACE_ID) {
@@ -97,5 +108,93 @@ export class SettingsService {
 
   async deleteApiKey(id: string) {
     return this.prisma.apiKey.delete({ where: { id } });
+  }
+
+  private sanitizeIntegrationConfig(config?: Record<string, string> | null) {
+    const safeConfig: Record<string, string | boolean> = {};
+
+    for (const [key, value] of Object.entries(config ?? {})) {
+      if (this.isPrivateConfigKey(key)) {
+        safeConfig.configured = Boolean(value?.trim());
+        continue;
+      }
+      safeConfig[key] = value;
+    }
+
+    return safeConfig;
+  }
+
+  private sanitizeIntegration<T extends { config: unknown }>(integration: T) {
+    return {
+      ...integration,
+      config: this.sanitizeIntegrationConfig(integration.config as Record<string, string> | null),
+    };
+  }
+
+  private mergePrivateIntegrationConfig(
+    existingConfig: Record<string, string> | undefined,
+    nextConfig: Record<string, string>,
+  ) {
+    const merged = { ...nextConfig };
+
+    for (const key of Object.keys(merged)) {
+      if (this.isPrivateConfigKey(key) && !merged[key]?.trim()) {
+        if (existingConfig?.[key]) {
+          merged[key] = existingConfig[key];
+        } else {
+          delete merged[key];
+        }
+      }
+    }
+
+    return merged;
+  }
+
+  private isPrivateConfigKey(key: string) {
+    return /apiKey|api_key|key|secret|token|password/i.test(key);
+  }
+
+  private getScraperStatus(provider: string, gosomAvailable: boolean, gosomBinaryPath: string) {
+    if (provider === "gosom") {
+      return {
+        ok: gosomAvailable,
+        provider,
+        effectiveProvider: gosomAvailable ? "gosom" : "unavailable",
+        binaryPath: gosomBinaryPath,
+        message: gosomAvailable
+          ? "Binario do Gosom encontrado"
+          : "SCRAPER_PROVIDER=gosom exige o binario do Gosom, mas ele nao foi encontrado",
+      };
+    }
+
+    if (provider === "playwright") {
+      return {
+        ok: true,
+        provider,
+        effectiveProvider: "playwright",
+        binaryPath: gosomBinaryPath,
+        message: "Playwright configurado como motor de busca",
+      };
+    }
+
+    if (provider === "auto") {
+      return {
+        ok: true,
+        provider,
+        effectiveProvider: gosomAvailable ? "gosom" : "playwright",
+        binaryPath: gosomBinaryPath,
+        message: gosomAvailable
+          ? "Modo auto usando Gosom"
+          : "Modo auto usando fallback Playwright porque o binario do Gosom nao foi encontrado",
+      };
+    }
+
+    return {
+      ok: false,
+      provider,
+      effectiveProvider: "invalid",
+      binaryPath: gosomBinaryPath,
+      message: `SCRAPER_PROVIDER invalido: ${provider}`,
+    };
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bot, Check, Database, Eye, EyeOff, Key, Loader2, Lock, RefreshCw, Server } from "lucide-react";
+import { Bot, Check, Database, Key, Loader2, Lock, RefreshCw, Server } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +38,7 @@ function StatusRow({
   warning?: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+    <div className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="flex min-w-0 items-start gap-3">
         <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
           <Icon className="h-4 w-4 text-muted-foreground" />
@@ -48,7 +48,9 @@ function StatusRow({
           <p className="break-words text-xs text-muted-foreground">{detail}</p>
         </div>
       </div>
-      <StatusBadge ok={ok} warning={warning} />
+      <div className="sm:shrink-0">
+        <StatusBadge ok={ok} warning={warning} />
+      </div>
     </div>
   );
 }
@@ -61,7 +63,6 @@ export function SettingsPage() {
   const [openaiKey, setOpenaiKey] = useState("");
   const [openaiModel, setOpenaiModel] = useState("gpt-4o-mini");
   const [openaiBase, setOpenaiBase] = useState("");
-  const [showKey, setShowKey] = useState(false);
   const [savingIntegration, setSavingIntegration] = useState(false);
   const [savedIntegration, setSavedIntegration] = useState(false);
 
@@ -80,11 +81,10 @@ export function SettingsPage() {
   useEffect(() => { void loadStatus(); }, [loadStatus]);
 
   useEffect(() => {
-    api.get<Array<{ type: string; config: Record<string, string> }>>("/settings/integrations")
+    api.get<Array<{ type: string; config: { model?: string; baseURL?: string; configured?: boolean } }>>("/settings/integrations")
       .then((integrations) => {
         const openai = integrations.find((i) => i.type === "openai");
         if (openai) {
-          setOpenaiKey(openai.config.apiKey ?? "");
           setOpenaiModel(openai.config.model ?? "gpt-4o-mini");
           setOpenaiBase(openai.config.baseURL ?? "");
         }
@@ -141,8 +141,9 @@ export function SettingsPage() {
       await api.post("/settings/integrations", {
         type: "openai",
         name: "OpenAI / API compatível",
-        config: { apiKey: openaiKey, model: openaiModel, baseURL: openaiBase },
+        config: { apiKey: openaiKey.trim(), model: openaiModel, baseURL: openaiBase },
       });
+      setOpenaiKey("");
       setSavedIntegration(true);
       await loadStatus();
       setTimeout(() => setSavedIntegration(false), 2000);
@@ -154,19 +155,19 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4 sm:space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Configuração pessoal</h1>
         <p className="text-muted-foreground">Status local, motor de scraping e configuração de IA.</p>
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <CardHeader className="flex flex-col items-stretch gap-4 space-y-0 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle className="text-base">Status do sistema</CardTitle>
             <CardDescription>Verificações da sua instância pessoal do Buscador de Lead.</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={loadStatus} disabled={statusLoading}>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={loadStatus} disabled={statusLoading}>
             {statusLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Atualizar
           </Button>
@@ -215,16 +216,16 @@ export function SettingsPage() {
             <Label>Chave da API</Label>
             <div className="flex gap-2">
               <Input
-                type={showKey ? "text" : "password"}
-                placeholder="sk-... ou chave de provedor compatível"
+                type="password"
+                placeholder={status?.ai.configured ? "Chave ja configurada no backend" : "Cole uma nova chave"}
                 value={openaiKey}
                 onChange={(e) => setOpenaiKey(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline" size="icon" onClick={() => setShowKey((s) => !s)} className="shrink-0">
-                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              A chave salva nao e exibida no navegador. Preencha este campo apenas para criar ou substituir a chave no backend.
+            </p>
           </div>
 
           <Separator />
@@ -252,7 +253,7 @@ export function SettingsPage() {
             />
           </div>
 
-          <Button className="bg-purple-600 hover:bg-purple-700" onClick={saveAiIntegration} disabled={savingIntegration}>
+          <Button className="w-full bg-purple-600 hover:bg-purple-700 sm:w-auto" onClick={saveAiIntegration} disabled={savingIntegration}>
             {savingIntegration ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : savedIntegration ? (
@@ -269,7 +270,7 @@ export function SettingsPage() {
           <CardDescription>Crie chaves de API para integrar o Buscador de Lead com outras ferramentas externas.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={handleGenerateKey} className="flex gap-2">
+          <form onSubmit={handleGenerateKey} className="flex flex-col gap-2 sm:flex-row">
             <Input
               placeholder="Nome da chave (ex: Zapier, n8n)"
               value={newKeyName}
@@ -277,7 +278,7 @@ export function SettingsPage() {
               className="flex-1"
               required
             />
-            <Button type="submit" className="bg-purple-600 hover:bg-purple-700">Gerar chave</Button>
+            <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 sm:w-auto">Gerar chave</Button>
           </form>
 
           {generatedKey && (
@@ -304,15 +305,15 @@ export function SettingsPage() {
             ) : (
               <div className="divide-y border border-zinc-800 rounded-lg overflow-hidden">
                 {apiKeys.map((key) => (
-                  <div key={key.id} data-testid="key-row" className="flex items-center justify-between p-3 text-xs bg-zinc-900/20">
-                    <div>
+                  <div key={key.id} data-testid="key-row" className="flex flex-col gap-3 bg-zinc-900/20 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
                       <p className="font-medium">{key.name}</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">Criada em: {new Date(key.createdAt).toLocaleDateString()}</p>
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 text-destructive hover:bg-destructive/10"
+                      className="h-8 justify-start text-destructive hover:bg-destructive/10 sm:justify-center"
                       onClick={() => handleDeleteKey(key.id)}
                     >
                       Excluir

@@ -88,7 +88,7 @@ export function IntegrationsPage() {
       />
 
       <Card className="overflow-hidden border-purple-200 bg-gradient-to-r from-purple-700 via-violet-700 to-blue-700 text-white shadow-lg shadow-purple-700/20">
-        <CardContent className="flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between">
+        <CardContent className="flex flex-col gap-5 p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
               <KeyRound className="h-6 w-6" />
@@ -100,13 +100,13 @@ export function IntegrationsPage() {
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <Button size="sm" variant="secondary" asChild className="rounded-xl bg-white text-purple-700 hover:bg-purple-50">
+          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+            <Button size="sm" variant="secondary" asChild className="w-full rounded-xl bg-white text-purple-700 hover:bg-purple-50 sm:w-auto">
               <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/docs`} target="_blank" rel="noreferrer">
                 Docs Swagger
               </a>
             </Button>
-            <Button size="sm" asChild className="rounded-xl bg-slate-950 text-white hover:bg-slate-900">
+            <Button size="sm" asChild className="w-full rounded-xl bg-slate-950 text-white hover:bg-slate-900 sm:w-auto">
               <Link href="/settings">Chaves de API</Link>
             </Button>
           </div>

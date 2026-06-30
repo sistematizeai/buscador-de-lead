@@ -23,8 +23,35 @@ export class ScraperController {
     @WorkspaceId() workspaceId: string,
   ) {
     const campaign = await this.campaigns.findOne(id, workspaceId);
-    // Executa a busca em segundo plano.
-    this.processor.process({
+    this.enqueueCampaign(campaign);
+    return { message: "Campanha iniciada", campaignId: id };
+  }
+
+  @Post("campaigns/:id/retry")
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: "Tenta novamente uma campanha que falhou" })
+  async retryCampaign(
+    @Param("id") id: string,
+    @WorkspaceId() workspaceId: string,
+  ) {
+    const campaign = await this.campaigns.findOne(id, workspaceId);
+    this.enqueueCampaign(campaign);
+    return { message: "Campanha reenviada para busca", campaignId: id };
+  }
+
+  private enqueueCampaign(campaign: {
+    id: string;
+    workspaceId: string;
+    searchQueries: string[];
+    industry: string;
+    location: string;
+    maxResults: number;
+    yourService: string;
+    contentStyle: string;
+    language: string;
+    source: string;
+  }) {
+    void this.processor.process({
       campaignId: campaign.id,
       workspaceId: campaign.workspaceId,
       searchQueries: campaign.searchQueries,
@@ -36,6 +63,5 @@ export class ScraperController {
       language: campaign.language,
       source: campaign.source,
     }).catch((err) => console.error("Falha no scraper:", err));
-    return { message: "Campanha iniciada", campaignId: id };
   }
 }

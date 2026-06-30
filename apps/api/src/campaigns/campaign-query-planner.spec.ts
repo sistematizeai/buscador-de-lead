@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCampaignSearchQueries, buildRegionLabel } from "./campaign-query-planner";
+import { buildCampaignSearchQueries, buildRegionLabel, normalizeCampaignSources } from "./campaign-query-planner";
 
 describe("campaign-query-planner", () => {
   it("builds a precise hierarchical region label", () => {
@@ -54,5 +54,35 @@ describe("campaign-query-planner", () => {
       "Restaurantes e alimentação pizzarias sem site Brasil Bahia Salvador",
       "Restaurantes e alimentação pizzarias sem catálogo online Brasil Bahia Salvador",
     ]);
+  });
+
+  it("maps petshop niche to a commercial pet shop search term", () => {
+    const queries = buildCampaignSearchQueries({
+      industry: "petshop",
+      location: "Brasil > Bahia > Salvador",
+      searchQueries: ["banho e tosa"],
+      targetWebsiteMode: "missing_website",
+    });
+
+    expect(queries).toEqual([
+      "Pet shops e banho e tosa banho e tosa sem site Brasil Bahia Salvador",
+      "Pet shops e banho e tosa banho e tosa sem catálogo online Brasil Bahia Salvador",
+    ]);
+  });
+
+  it("normalizes multiple selected campaign sources without duplicates", () => {
+    expect(normalizeCampaignSources(["instagram", "google_maps", "instagram", "facebook_marketplace"])).toEqual([
+      "instagram",
+      "google_maps",
+      "facebook_marketplace",
+    ]);
+  });
+
+  it("supports persisted comma-separated campaign sources", () => {
+    expect(normalizeCampaignSources("google_maps,instagram,unknown")).toEqual(["google_maps", "instagram"]);
+  });
+
+  it("falls back to Google Maps when no valid source is supplied", () => {
+    expect(normalizeCampaignSources(["unknown"])).toEqual(["google_maps"]);
   });
 });

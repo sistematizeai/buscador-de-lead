@@ -3,6 +3,7 @@ export interface ScrapedBusiness {
   address: string;
   phone: string;
   website: string;
+  instagramUrl?: string;
   rating: string;
   hasWebsite: boolean;
   referenceLink: string;

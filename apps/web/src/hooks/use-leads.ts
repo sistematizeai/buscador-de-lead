@@ -2,12 +2,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 
+interface RefreshOptions {
+  silent?: boolean;
+}
+
 export interface Lead {
   id: string;
   name: string;
   address: string;
   phone: string;
   website: string;
+  instagramUrl?: string | null;
   rating: string;
   score: number;
   priority: "HIGH" | "MEDIUM" | "LOW";
@@ -45,9 +50,10 @@ export function useLeads(campaignId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options: RefreshOptions = {}) => {
+    const showLoading = !options.silent;
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const path = `/leads${campaignId ? `?campaignId=${campaignId}` : ""}`;
       const data = await api.get<Lead[]>(path);
       setLeads(data);
@@ -55,7 +61,7 @@ export function useLeads(campaignId?: string) {
     } catch (e) {
       setError(String(e));
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [campaignId]);
 
@@ -68,16 +74,17 @@ export function useLead(id: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options: RefreshOptions = {}) => {
+    const showLoading = !options.silent;
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const data = await api.get<Lead>(`/leads/${id}`);
       setLead(data);
       setError(null);
     } catch (e) {
       setError(String(e));
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [id]);
 

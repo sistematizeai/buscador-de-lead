@@ -15,4 +15,5 @@ export class CreateCampaignDto {
   @ApiProperty({ default: "balanced" }) @IsOptional() @IsString() contentStyle?: string;
   @ApiProperty({ default: "portuguese" }) @IsOptional() @IsString() language?: string;
   @ApiProperty({ required: false, default: "google_maps" }) @IsOptional() @IsString() source?: string;
+  @ApiProperty({ required: false, type: [String] }) @IsOptional() @IsArray() @IsString({ each: true }) sources?: string[];
 }

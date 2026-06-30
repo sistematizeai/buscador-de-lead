@@ -13,6 +13,9 @@ out/
 .env
 .env.local
 .env.production
+.env.*
+!.env.example
+!**/.env.example
 
 # Database
 data/
@@ -30,4 +33,6 @@ tools/bin/*.exe
 *.pem
 .turbo
 coverage/
+playwright-report/
+test-results/
 *.log

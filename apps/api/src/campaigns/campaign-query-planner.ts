@@ -13,6 +13,9 @@ export interface BuildCampaignSearchQueriesInput {
   targetWebsiteMode?: "any" | "missing_website";
 }
 
+export const CAMPAIGN_SEARCH_SOURCES = ["google_maps", "instagram", "facebook_marketplace"] as const;
+export type CampaignSearchSource = (typeof CAMPAIGN_SEARCH_SOURCES)[number];
+
 const INDUSTRY_SEARCH_TERMS: Record<string, string> = {
   restaurant: "Restaurantes e alimentação",
   cafe: "Cafés e cafeterias",
@@ -20,6 +23,7 @@ const INDUSTRY_SEARCH_TERMS: Record<string, string> = {
   automotive: "Oficinas e lojas automotivas",
   healthcare: "Clínicas e consultórios",
   beauty: "Salões de beleza e estética",
+  petshop: "Pet shops e banho e tosa",
   education: "Cursos e escolas",
   realestate: "Imobiliárias",
   event: "Empresas de eventos",
@@ -65,6 +69,26 @@ export function buildCampaignSearchQueries(input: BuildCampaignSearchQueriesInpu
 export function resolveIndustrySearchTerm(industry: string) {
   const trimmed = industry.trim();
   return INDUSTRY_SEARCH_TERMS[trimmed] ?? trimmed;
+}
+
+export function normalizeCampaignSources(source?: string | string[] | null): CampaignSearchSource[] {
+  const rawValues = Array.isArray(source)
+    ? source
+    : typeof source === "string"
+      ? source.split(",")
+      : [];
+  const allowed = new Set<string>(CAMPAIGN_SEARCH_SOURCES);
+  const seen = new Set<string>();
+  const normalized = rawValues
+    .map((value) => value.trim())
+    .filter((value): value is CampaignSearchSource => allowed.has(value))
+    .filter((value) => {
+      if (seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+
+  return normalized.length > 0 ? normalized : ["google_maps"];
 }
 
 function enforceStrictNicheAndRegion(query: string, industry: string, region: string) {

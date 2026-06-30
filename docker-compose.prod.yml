@@ -38,6 +38,7 @@ services:
     restart: always
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-prospex}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-prospex}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-prospex}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-prospex}
       REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD required}@redis:6379
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}

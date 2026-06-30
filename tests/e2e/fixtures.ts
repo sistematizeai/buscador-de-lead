@@ -1,6 +1,9 @@
 import { test as base, expect, type Page } from "@playwright/test";
 
-// Unique per test run — avoids conflicts if DB is shared between runs
+const E2E_DB_WRITE_GUARD =
+  "E2E creates users, workspaces, campaigns, API keys and leads. Set E2E_ALLOW_DB_WRITES=true and use an isolated test database before running authenticated E2E tests.";
+
+// Unique per test run - avoids conflicts if DB is shared between runs
 const RUN_ID = Date.now();
 
 export const TEST_USER = {
@@ -12,7 +15,12 @@ export const TEST_USER = {
 
 /** Register + login once, reuse page state in each test */
 export const test = base.extend<{ authedPage: Page }>({
-  authedPage: async ({ page }, use) => {
+  authedPage: async ({ page }, use, testInfo) => {
+    if (process.env.E2E_ALLOW_DB_WRITES !== "true") {
+      testInfo.skip(true, E2E_DB_WRITE_GUARD);
+      return;
+    }
+
     await registerAndLogin(page, TEST_USER);
     await use(page);
   },

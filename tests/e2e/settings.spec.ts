@@ -58,11 +58,11 @@ test.describe("Settings", () => {
   test("save AI configuration", async ({ authedPage: page }) => {
     await page.goto("/settings");
 
-    const apiKeyInput = page.locator('input[placeholder*="sk-"], input[placeholder*="API key"]').first();
+    const apiKeyInput = page.locator('input[placeholder*="chave"], input[placeholder*="API key"]').first();
     const saveBtn = page.locator('button:has-text("Salvar configuração"), button:has-text("Salvar configuração de IA")').first();
 
     if (await apiKeyInput.isVisible() && await saveBtn.isVisible()) {
-      await apiKeyInput.fill("sk-test-placeholder-key");
+      await apiKeyInput.fill("provider-test-placeholder-key");
       await saveBtn.click();
       // Should not crash — success feedback or no error
       await expect(page.locator("text=error").or(page.locator(".text-red-400"))).not.toBeVisible({ timeout: 3000 });

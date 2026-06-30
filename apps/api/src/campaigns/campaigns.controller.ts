@@ -40,5 +40,7 @@ export class CampaignsController {
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Remove uma campanha" })
-  remove(@Param("id") id: string) { return this.campaignsService.remove(id); }
+  remove(@Param("id") id: string, @WorkspaceId() workspaceId: string) {
+    return this.campaignsService.remove(id, workspaceId);
+  }
 }

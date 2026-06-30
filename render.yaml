@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: buscador-lead-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    autoDeployTrigger: commit
+    healthCheckPath: /api/health
+    preDeployCommand: pnpm --filter @leadsync/database db:push
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: SCRAPER_PROVIDER
+        value: gosom
+      - key: GOSOM_BINARY_PATH
+        value: tools/bin/gosom-google-maps-scraper
+      - key: GOSOM_TIMEOUT_MS
+        value: 120000
+      - key: GOSOM_DEPTH
+        value: 1
+      - key: SCRAPER_QUERY_RETRIES
+        value: 2
+      - key: SCRAPER_MAX_ROUNDS
+        value: 6
+      - key: SCRAPER_ALLOW_MOCK_FALLBACK
+        value: false

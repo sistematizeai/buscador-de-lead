@@ -65,9 +65,15 @@ Think Apollo.io + Instantly.ai — but open-source, self-hosted, and free.
 | **Queue** | BullMQ + Redis 7 |
 | **AI** | OpenAI SDK (supports OpenRouter & Ollama) |
 | **Monorepo** | Turborepo + pnpm workspaces |
-| **Deploy** | Docker Compose |
+| **Deploy** | Docker Compose, Vercel frontend, Render backend |
 
 ---
+
+## Production deploy
+
+For the hosted setup with frontend on Vercel and backend on Render, use the deployment guide:
+
+[Deploy Vercel + Render](./docs/DEPLOY_VERCEL_RENDER.md)
 
 ## Quickstart
 
@@ -95,7 +101,8 @@ cp .env.example packages/database/.env
 Edit `apps/api/.env` with your values:
 ```env
 DATABASE_URL="postgresql://prospex:yourpassword@localhost:5432/prospex"
-OPENAI_API_KEY=sk-your-key-here   # or leave empty for mock AI
+DIRECT_URL="postgresql://prospex:yourpassword@localhost:5432/prospex"
+OPENAI_API_KEY=   # keep empty for mock AI, or set only in backend .env
 OPENAI_MODEL=gpt-4o-mini
 # Optional: use OpenRouter or Ollama
 # OPENAI_BASE_URL=https://openrouter.ai/api/v1
@@ -107,6 +114,7 @@ OPENAI_MODEL=gpt-4o-mini
 docker compose up -d         # starts PostgreSQL + Redis
 pnpm --filter @prospex/database db:push   # push schema
 pnpm --filter @prospex/database exec prisma generate
+pnpm db:health                            # verify connection, tables, dedupe index, and write/read/delete
 ```
 
 ### 4. Run development servers
@@ -172,7 +180,7 @@ Prospex supports any OpenAI-compatible AI provider:
 
 **OpenRouter** (access Claude, Gemini, Llama, etc.):
 ```env
-OPENAI_API_KEY=sk-or-your-openrouter-key
+OPENAI_API_KEY=
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
 OPENAI_MODEL=anthropic/claude-haiku-4-5
 ```

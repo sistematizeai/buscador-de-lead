@@ -25,10 +25,12 @@ describe("CampaignsService", () => {
       maxResults: 20,
       contentStyle: "balanced",
       language: "portuguese",
+      sources: ["google_maps", "instagram"],
     });
 
     expect(prisma.campaign.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        source: "google_maps,instagram",
         location: "Brasil > Bahia > Salvador > Nazaré > Rua do Salete",
         searchQueries: [
           "Restaurantes e alimentação pizzarias sem site Brasil Bahia Salvador Nazaré Rua do Salete",
@@ -37,5 +39,6 @@ describe("CampaignsService", () => {
       }),
     });
     expect(prisma.campaign.create.mock.calls[0][0].data).not.toHaveProperty("regionConfig");
+    expect(prisma.campaign.create.mock.calls[0][0].data).not.toHaveProperty("sources");
   });
 });

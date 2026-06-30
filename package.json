@@ -6,17 +6,21 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "build:api": "pnpm --filter @leadsync/database db:generate && pnpm --filter ./apps/api build",
+    "build:web": "pnpm --filter ./apps/web build",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
     "db:migrate": "turbo db:migrate",
+    "db:health": "pnpm --filter ./apps/api db:health",
     "db:local:start": "powershell -ExecutionPolicy Bypass -File scripts/start-local-postgres.ps1",
     "db:local:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-local-postgres.ps1",
     "test:unit": "vitest run",
     "test:e2e": "playwright test --config=playwright.config.ts",
     "test:e2e:ui": "playwright test --config=playwright.config.ts --ui",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "deploy:check": "pnpm --filter @leadsync/database db:generate && pnpm --filter ./apps/api lint && pnpm --filter ./apps/web lint && pnpm --filter ./apps/api build && pnpm --filter ./apps/web build"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

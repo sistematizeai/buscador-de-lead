@@ -131,7 +131,7 @@ describe("MarketingAiService", () => {
       score: 82,
     });
 
-    expect(createCompletionMock).toHaveBeenCalledWith(expect.objectContaining({
+    expect(createCompletionMock.mock.calls[0][0]).toEqual(expect.objectContaining({
       max_tokens: 1000,
     }));
   });

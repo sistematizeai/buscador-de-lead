@@ -29,8 +29,8 @@ export function LeadsList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/[0.03]">
-        <div className="relative min-w-[240px] flex-1">
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-950/[0.03] sm:p-4 lg:flex-row lg:items-center">
+        <div className="relative min-w-0 flex-1">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             placeholder="Buscar por empresa, endereço ou telefone..."
@@ -40,7 +40,7 @@ export function LeadsList() {
           />
         </div>
         <Select value={priority} onValueChange={setPriority}>
-          <SelectTrigger className="h-11 w-40 rounded-xl border-slate-200 bg-white"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+          <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white lg:w-40"><SelectValue placeholder="Prioridade" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
             <SelectItem value="HIGH">Alta</SelectItem>
@@ -49,7 +49,7 @@ export function LeadsList() {
           </SelectContent>
         </Select>
         <Select value={crmStatus} onValueChange={setCrmStatus}>
-          <SelectTrigger className="h-11 w-44 rounded-xl border-slate-200 bg-white"><SelectValue placeholder="Status CRM" /></SelectTrigger>
+          <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white lg:w-44"><SelectValue placeholder="Status CRM" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="new">Novo</SelectItem>
@@ -62,7 +62,7 @@ export function LeadsList() {
             <SelectItem value="contact_later">Contatar futuramente</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" className="ml-auto h-11 rounded-xl bg-white" onClick={() => api.download("/export/leads/csv", "leads-all.csv")}>
+        <Button variant="outline" className="h-11 w-full rounded-xl bg-white lg:ml-auto lg:w-auto" onClick={() => api.download("/export/leads/csv", "leads-all.csv")}>
           <Download className="mr-2 h-4 w-4" />Exportar CSV
         </Button>
       </div>

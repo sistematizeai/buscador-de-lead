@@ -41,7 +41,7 @@ export function AppSidebar() {
   };
 
   return (
-    <aside className="flex w-[280px] flex-shrink-0 flex-col border-r border-white/10 bg-[#17171b] text-slate-200">
+    <aside className="hidden w-[280px] flex-shrink-0 flex-col border-r border-white/10 bg-[#17171b] text-slate-200 lg:flex">
       <div className="flex h-20 items-center border-b border-white/10 px-5">
         <AppLogo />
       </div>

@@ -42,14 +42,14 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm shadow-slate-950/[0.03]">
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-950/[0.03] sm:px-6 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-950">Bom dia</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">Bom dia</h1>
           <p className="mt-0.5 text-sm text-slate-500">
             Veja o que está acontecendo com seus leads hoje.
           </p>
         </div>
-        <Button asChild className="rounded-xl bg-purple-600 shadow-md shadow-purple-500/20 hover:bg-purple-700">
+        <Button asChild className="w-full rounded-xl bg-purple-600 shadow-md shadow-purple-500/20 hover:bg-purple-700 sm:w-auto">
           <Link href="/campaigns/new">
             <Plus className="mr-2 h-4 w-4" />Nova campanha
           </Link>
@@ -59,14 +59,14 @@ export function DashboardOverview() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.title} className="border-slate-200 bg-white shadow-sm shadow-slate-950/[0.02] transition-shadow hover:shadow-md">
-            <CardContent className="pt-6">
+            <CardContent className="p-4 sm:pt-6">
               <div className="mb-3 flex items-center justify-between">
                 <div className={`rounded-xl p-2.5 ${stat.bg}`}>
                   <stat.icon className={`h-4 w-4 ${stat.color}`} />
                 </div>
                 <ArrowUpRight className="h-3.5 w-3.5 text-emerald-600" />
               </div>
-              <p className="text-3xl font-bold text-slate-950">{stat.value}</p>
+              <p className="text-2xl font-bold text-slate-950 sm:text-3xl">{stat.value}</p>
               <p className="mt-1 text-sm text-muted-foreground">{stat.title}</p>
             </CardContent>
           </Card>
@@ -86,7 +86,7 @@ export function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={trendData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={trendData} margin={{ top: 5, right: 8, left: -28, bottom: 0 }}>
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
@@ -150,7 +150,7 @@ export function DashboardOverview() {
                       <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-blue-500" />
                     )}
                     {campaign.status === "completed" && (
-                      <Badge variant="success" className="py-0 text-[10px]">Concluída</Badge>
+                      <Badge variant="success" className="hidden py-0 text-[10px] sm:inline-flex">Concluída</Badge>
                     )}
                   </Link>
                 ))}

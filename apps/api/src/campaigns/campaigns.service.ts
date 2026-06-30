@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateCampaignDto } from "./dto/create-campaign.dto";
 import { UpdateCampaignDto } from "./dto/update-campaign.dto";
-import { buildCampaignSearchQueries, buildRegionLabel } from "./campaign-query-planner";
+import { buildCampaignSearchQueries, buildRegionLabel, normalizeCampaignSources } from "./campaign-query-planner";
 
 const DEFAULT_WORKSPACE_ID = "default-workspace";
 
@@ -28,8 +28,14 @@ export class CampaignsService {
   }
 
   async create(dto: CreateCampaignDto, workspaceId = DEFAULT_WORKSPACE_ID) {
-    const { regionConfig: _regionConfig, targetWebsiteMode: _targetWebsiteMode, ...campaignData } = dto;
+    const {
+      regionConfig: _regionConfig,
+      targetWebsiteMode: _targetWebsiteMode,
+      sources: _sources,
+      ...campaignData
+    } = dto;
     const location = _regionConfig ? buildRegionLabel(_regionConfig) || dto.location : dto.location;
+    const selectedSources = normalizeCampaignSources(_sources ?? dto.source);
     const searchQueries = buildCampaignSearchQueries({
       industry: dto.industry,
       location,
@@ -50,7 +56,7 @@ export class CampaignsService {
         maxResults: dto.maxResults ?? 20,
         contentStyle: dto.contentStyle ?? "balanced",
         language: dto.language ?? "portuguese",
-        source: dto.source || "google_maps",
+        source: selectedSources.join(","),
         workspaceId,
       },
     });

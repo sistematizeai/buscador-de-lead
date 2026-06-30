@@ -6,6 +6,8 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main",
+    "backfill:lead-dedupe": "node dist/scripts/backfill-lead-dedupe.js",
+    "db:health": "node scripts/check-database-health.mjs",
     "lint": "eslint ."
   },
   "dependencies": {
