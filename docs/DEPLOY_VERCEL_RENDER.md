@@ -37,6 +37,7 @@ DATABASE_URL=postgresql://...
 DIRECT_URL=postgresql://...
 JWT_SECRET=<valor forte gerado no Render>
 NEXT_PUBLIC_APP_URL=https://seu-projeto.vercel.app
+NEXT_PUBLIC_API_URL=https://buscador-lead-api.onrender.com/api
 CORS_ALLOWED_ORIGINS=https://seu-projeto.vercel.app
 ```
 
