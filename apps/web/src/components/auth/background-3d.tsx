@@ -1,185 +1,191 @@
 "use client";
 
-import React, { useRef } from "react";
-import { Canvas } from "@react-three/fiber";
-import { Float, MeshDistortMaterial } from "@react-three/drei";
+import React, { useRef, useMemo } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-function FloatingShape({
-  geometry,
-  color,
-  position,
-  scale = 1,
-  rotation = [0, 0, 0],
-  distort = 0,
-  speed = 1.5,
-  floatSpeed = 1.5,
-  floatIntensity = 1,
-  roughness = 0.2,
-  metalness = 0.6,
-}: {
-  geometry: THREE.BufferGeometry;
-  color: string;
-  position: [number, number, number];
-  scale?: number | [number, number, number];
-  rotation?: [number, number, number];
-  distort?: number;
-  speed?: number;
-  floatSpeed?: number;
-  floatIntensity?: number;
-  roughness?: number;
-  metalness?: number;
-}) {
-  const meshRef = useRef<THREE.Mesh>(null);
+const PARTICLE_COUNT = 85;
+const MAX_DISTANCE = 2.0;
 
-  return (
-    <Float
-      speed={floatSpeed}
-      rotationIntensity={1.2}
-      floatIntensity={floatIntensity}
-      floatingRange={[-0.4, 0.4]}
-    >
-      <mesh
-        ref={meshRef}
-        position={position}
-        scale={scale}
-        rotation={rotation}
-        castShadow
-        receiveShadow
-      >
-        <primitive object={geometry} attach="geometry" />
-        {distort > 0 ? (
-          <MeshDistortMaterial
-            color={color}
-            speed={speed}
-            distort={distort}
-            roughness={roughness}
-            metalness={metalness}
-            clearcoat={1.0}
-            clearcoatRoughness={0.1}
-          />
-        ) : (
-          <meshPhysicalMaterial
-            color={color}
-            roughness={roughness}
-            metalness={metalness}
-            clearcoat={1.0}
-            clearcoatRoughness={0.1}
-            reflectivity={0.9}
-          />
-        )}
-      </mesh>
-    </Float>
-  );
-}
+function Constellation() {
+  const pointsRef = useRef<THREE.Points>(null);
+  const linesRef = useRef<THREE.LineSegments>(null);
 
-function Scene() {
-  // Geometrias nativas do Three.js criadas uma única vez
-  const geometries = React.useMemo(() => {
-    return {
-      largeTorusKnot: new THREE.TorusKnotGeometry(1.2, 0.35, 200, 32, 3, 5),
-      floatingTorus: new THREE.TorusGeometry(1.4, 0.35, 32, 100),
-      organicSphere: new THREE.SphereGeometry(1.1, 64, 64),
-      floatingRing: new THREE.RingGeometry(0.8, 1.2, 32),
-      coneShape: new THREE.ConeGeometry(0.8, 1.5, 32),
-    };
+  // Inicializa posições, velocidades e conexões de rede
+  const { positions, velocities, particleData } = useMemo(() => {
+    const pos = new Float32Array(PARTICLE_COUNT * 3);
+    const vel = new Float32Array(PARTICLE_COUNT * 3);
+    const data = [];
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      // Posiciona as partículas em uma caixa 3D flutuante
+      const x = (Math.random() - 0.5) * 10;
+      const y = (Math.random() - 0.5) * 6;
+      const z = (Math.random() - 0.5) * 5;
+
+      pos[i * 3] = x;
+      pos[i * 3 + 1] = y;
+      pos[i * 3 + 2] = z;
+
+      // Velocidades de flutuação muito lentas e suaves
+      vel[i * 3] = (Math.random() - 0.5) * 0.006;
+      vel[i * 3 + 1] = (Math.random() - 0.5) * 0.006;
+      vel[i * 3 + 2] = (Math.random() - 0.5) * 0.006;
+
+      data.push({ x, y, z });
+    }
+
+    return { positions: pos, velocities: vel, particleData: data };
   }, []);
+
+  useFrame((state) => {
+    const pointsGeometry = pointsRef.current?.geometry;
+    const linesGeometry = linesRef.current?.geometry;
+
+    if (!pointsGeometry || !linesGeometry) return;
+
+    const positionsAttr = pointsGeometry.attributes.position as THREE.BufferAttribute;
+    const currentPositions = positionsAttr.array as Float32Array;
+
+    // 1. Atualiza as posições das partículas e rebate nos limites
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      const idx = i * 3;
+
+      // Adiciona velocidade
+      currentPositions[idx] += velocities[idx];
+      currentPositions[idx + 1] += velocities[idx + 1];
+      currentPositions[idx + 2] += velocities[idx + 2];
+
+      // Limites X
+      if (currentPositions[idx] > 5.5 || currentPositions[idx] < -5.5) {
+        velocities[idx] = -velocities[idx];
+      }
+      // Limites Y
+      if (currentPositions[idx + 1] > 3.5 || currentPositions[idx + 1] < -3.5) {
+        velocities[idx + 1] = -velocities[idx + 1];
+      }
+      // Limites Z
+      if (currentPositions[idx + 2] > 2.5 || currentPositions[idx + 2] < -2.5) {
+        velocities[idx + 2] = -velocities[idx + 2];
+      }
+
+      particleData[i].x = currentPositions[idx];
+      particleData[i].y = currentPositions[idx + 1];
+      particleData[i].z = currentPositions[idx + 2];
+    }
+
+    positionsAttr.needsUpdate = true;
+
+    // 2. Calcula conexões da teia de rede
+    const linePositions = [];
+    const lineColors = [];
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      const p1 = particleData[i];
+
+      for (let j = i + 1; j < PARTICLE_COUNT; j++) {
+        const p2 = particleData[j];
+
+        // Distância Euclidiana entre as partículas
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dz = p1.z - p2.z;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        // Se estiver próximo, cria uma linha (conexão de teia)
+        if (dist < MAX_DISTANCE) {
+          // Pontos de início e fim da linha
+          linePositions.push(p1.x, p1.y, p1.z);
+          linePositions.push(p2.x, p2.y, p2.z);
+
+          // Cor baseada na distância para efeito de transição suave (fade-out)
+          const alpha = 1.0 - dist / MAX_DISTANCE;
+          // Tons elétricos: azul brilhante a ciano
+          const r = 0.0 + alpha * 0.2; // sutil avermelhado no ciano
+          const g = 0.4 + alpha * 0.6; // verde elétrico no ciano
+          const b = 0.8 + alpha * 0.2; // azul profundo
+
+          lineColors.push(r, g, b, alpha * 0.35); // Vértice 1
+          lineColors.push(r, g, b, alpha * 0.35); // Vértice 2
+        }
+      }
+    }
+
+    // 3. Atualiza os buffers da teia de linhas
+    linesGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(linePositions, 3)
+    );
+    linesGeometry.setAttribute(
+      "color",
+      new THREE.Float32BufferAttribute(lineColors, 4)
+    );
+
+    linesGeometry.computeBoundingSphere();
+    linesGeometry.computeBoundingBox();
+
+    // 4. Rotação suave da câmera em órbita para dar profundidade 3D incrível
+    const time = state.clock.getElapsedTime() * 0.05;
+    state.camera.position.x = Math.sin(time) * 6.5;
+    state.camera.position.z = Math.cos(time) * 6.5;
+    state.camera.lookAt(0, 0, 0);
+  });
 
   return (
     <>
-      {/* Luzes profissionais para dar volume 3D real */}
-      <ambientLight intensity={1.2} />
-      <directionalLight
-        position={[8, 8, 8]}
-        intensity={2.5}
-        castShadow
-        shadow-mapSize={[1024, 1024]}
-      />
-      <directionalLight position={[-8, 8, -8]} intensity={1.0} color="#3388ff" />
-      <pointLight position={[0, -5, 5]} intensity={1.5} color="#00ffff" />
+      {/* Sistema de Nós (Points) */}
+      <points ref={pointsRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[positions, 3]}
+            count={PARTICLE_COUNT}
+            array={positions}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          color="#38bdf8"
+          size={0.08}
+          sizeAttenuation={true}
+          transparent={true}
+          opacity={0.85}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
 
-      {/* 1. Curva espiral 3D (TorusKnot) no canto superior direito */}
-      <FloatingShape
-        geometry={geometries.largeTorusKnot}
-        color="#3b82f6"
-        position={[4, 2.5, -2]}
-        scale={1.2}
-        rotation={[0.5, 0.8, 0.2]}
-        floatSpeed={1.8}
-        floatIntensity={1.2}
-        roughness={0.1}
-        metalness={0.8}
-      />
-
-      {/* 2. Curva aberta / ferradura (Torus) no canto inferior esquerdo */}
-      <FloatingShape
-        geometry={geometries.floatingTorus}
-        color="#60a5fa"
-        position={[-4.5, -2.5, -1]}
-        scale={1.1}
-        rotation={[1.2, 0.5, -0.4]}
-        floatSpeed={1.4}
-        floatIntensity={1.0}
-        roughness={0.15}
-        metalness={0.7}
-      />
-
-      {/* 3. Forma orgânica distorcida e flutuante no centro-esquerda */}
-      <FloatingShape
-        geometry={geometries.organicSphere}
-        color="#2563eb"
-        position={[-3.8, 1.8, -3]}
-        scale={1.0}
-        distort={0.4}
-        speed={1.6}
-        floatSpeed={2.0}
-        floatIntensity={1.5}
-        roughness={0.1}
-        metalness={0.5}
-      />
-
-      {/* 4. Forma de cone metálico no centro-direita */}
-      <FloatingShape
-        geometry={geometries.coneShape}
-        color="#93c5fd"
-        position={[3.8, -2.0, -2.5]}
-        scale={0.9}
-        rotation={[0.8, -0.4, 0.9]}
-        floatSpeed={1.6}
-        floatIntensity={1.1}
-        roughness={0.2}
-        metalness={0.9}
-      />
-
-      {/* 5. Pequeno anel flutuante decorativo no fundo */}
-      <FloatingShape
-        geometry={geometries.floatingRing}
-        color="#1d4ed8"
-        position={[1.5, 3.2, -4]}
-        scale={0.7}
-        rotation={[0.2, 0.2, 0.5]}
-        floatSpeed={1.2}
-        floatIntensity={0.8}
-        roughness={0.3}
-        metalness={0.6}
-      />
+      {/* Sistema de Teia (LineSegments) */}
+      <lineSegments ref={linesRef}>
+        <bufferGeometry />
+        <lineBasicMaterial
+          vertexColors={true}
+          transparent={true}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          linewidth={1}
+        />
+      </lineSegments>
     </>
   );
 }
 
 export default function Background3D() {
   return (
-    <div className="absolute inset-0 w-full h-full z-0 select-none pointer-events-none bg-[#004dc0]">
-      {/* Gradiente de fundo super profundo e bonito */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#00388b] via-[#0052d4] to-[#4364f7] opacity-95" />
+    <div className="absolute inset-0 w-full h-full z-0 select-none pointer-events-none bg-[#030712]">
+      {/* Gradiente de fundo super escuro e futurista */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#020617] via-[#090d1f] to-[#0f172a] opacity-98" />
 
-      {/* Canvas do React Three Fiber para renderizar a cena WebGL */}
+      {/* Luzes ambiente */}
+      <ambientLight intensity={1.0} />
+
+      {/* Canvas do React Three Fiber */}
       <Canvas
-        camera={{ position: [0, 0, 7], fov: 55 }}
+        camera={{ position: [0, 0, 6.5], fov: 60 }}
         gl={{ antialias: true, alpha: true }}
         style={{ width: "100%", height: "100%" }}
       >
-        <Scene />
+        <Constellation />
       </Canvas>
     </div>
   );
