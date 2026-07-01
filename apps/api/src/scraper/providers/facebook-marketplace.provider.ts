@@ -16,6 +16,11 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
           "--disable-gpu",
+          "--disable-blink-features=AutomationControlled", // Remove flag de automação
+          "--disable-infobars",
+          "--window-position=0,0",
+          "--ignore-certificate-errors",
+          "--ignore-certificate-errors-spki-list",
         ],
       });
     }
@@ -24,29 +29,44 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
 
   async scrape(searchQuery: string, maxResults = 10): Promise<ScrapedBusiness[]> {
     const browser = await this.getBrowser();
-    const page = await browser.newPage();
-
-    // Configura headers limpos para simular usuário real
-    await page.setExtraHTTPHeaders({
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    const context = await browser.newContext({
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      locale: "pt-BR",
+      timezoneId: "America/Sao_Paulo",
+      viewport: { width: 1366, height: 768 },
     });
-    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // Injeta scripts de evasão de bot para mascarar Playwright
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+      (window as any).chrome = { runtime: {} };
+      const originalQuery = window.navigator.permissions.query;
+      window.navigator.permissions.query = (parameters) =>
+        parameters.name === "notifications"
+          ? Promise.resolve({ state: Notification.permission } as PermissionStatus)
+          : originalQuery(parameters);
+    });
+
+    const page = await context.newPage();
 
     try {
       const cleanQuery = searchQuery.replace(/[\x00-\x1f<>"'`]/g, "").trim();
-      // O Facebook Marketplace permite buscar informando a query na URL
       const url = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(cleanQuery)}`;
-      
-      this.logger.log(`Navegando no Facebook Marketplace: "${url}"`);
+
+      this.logger.log(`Navegando no Facebook Marketplace com evasão ativa: "${url}"`);
       await page.goto(url, {
         waitUntil: "domcontentloaded",
         timeout: 45000,
       });
 
-      // Aguarda os itens do Grid carregarem. O FB costuma usar classes ou atributos aria para os blocos
-      await page.waitForTimeout(5000); // Espera leve para renderização do React/DOM do Facebook
+      // Simula uma rolagem sutil no grid de anúncios
+      await page.evaluate(async () => {
+        window.scrollBy(0, 400);
+        await new Promise((r) => setTimeout(r, 1200));
+        window.scrollBy(0, -200);
+      });
+
+      await page.waitForTimeout(4000);
 
       // Extrai os anúncios listados na tela
       const items = await page.$$eval('a[href*="/marketplace/item/"]', (anchors) => {
@@ -55,27 +75,26 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
 
         for (const a of anchors) {
           const link = (a as HTMLAnchorElement).href || "";
-          // Evita duplicados na listagem
           const cleanLink = link.split("?")[0];
           if (seen.has(cleanLink)) continue;
           seen.add(cleanLink);
 
-          // Tenta extrair o título e o preço que costumam estar dentro do bloco do link
           const parent = a.parentElement;
           let title = "";
           let price = "";
 
           if (parent) {
-            // No FB Marketplace, os textos costumam estar em divs/spans aninhados
             const textElements = Array.from(parent.querySelectorAll("span"));
-            // O preço costuma ser um número precedido de R$ ou similar
-            const priceEl = textElements.find(el => el.textContent?.includes("R$") || /^\d[\d.,]*\s*$/.test(el.textContent || ""));
+            const priceEl = textElements.find(
+              (el) =>
+                el.textContent?.includes("R$") || /^\d[\d.,]*\s*$/.test(el.textContent || ""),
+            );
             price = priceEl?.textContent?.trim() ?? "";
 
-            // O título costuma ser um texto maior descritivo
-            const nonPriceTexts = textElements.filter(el => el.textContent && el.textContent.trim() !== price);
+            const nonPriceTexts = textElements.filter(
+              (el) => el.textContent && el.textContent.trim() !== price,
+            );
             if (nonPriceTexts.length > 0) {
-              // Pega o maior texto comercial que não seja o preço
               title = nonPriceTexts.reduce((max, el) => {
                 const t = el.textContent?.trim() || "";
                 return t.length > max.length ? t : max;
@@ -96,34 +115,96 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
         return results;
       });
 
-      this.logger.log(`Facebook Marketplace retornou ${items.length} anúncios.`);
+      this.logger.log(`Facebook Marketplace retornou ${items.length} anúncios no grid principal.`);
 
-      // Para cada anúncio, podemos fazer uma visita rápida opcional para coletar a descrição e os contatos.
-      // Limitamos a visitas em lote rápidas para não estourar tempo da campanha.
+      // Roda uma pré-filtragem inteligente por relevância para evitar carregar links de lixo
+      const queryTokens = cleanQuery.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
+      const scoredItems = items
+        .map((item) => {
+          let score = 0;
+          const lowerTitle = item.title.toLowerCase();
+          for (const token of queryTokens) {
+            if (lowerTitle.includes(token)) score += 5;
+          }
+          return { item, score };
+        })
+        .filter((entry) => entry.score > 0 || queryTokens.length === 0)
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.item);
+
+      this.logger.log(`Filtrados ${scoredItems.length} anúncios mais relevantes para a busca.`);
+
       const finalLeads: ScrapedBusiness[] = [];
-      const itemsToScrape = items.slice(0, maxResults);
+      const itemsToScrape = scoredItems.slice(0, Math.min(maxResults, 6)); // Limite de 6 requisições de detalhes para não disparar bans de IP
+
+      const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
       for (const item of itemsToScrape) {
         try {
+          // Cadenciamento (Smart Pacing): Atraso aleatório antes de acessar o detalhe (Jitter)
+          const jitterDelay = 4000 + Math.random() * 6000; // Entre 4s e 10s
+          this.logger.log(`Aguardando ${(jitterDelay / 1000).toFixed(1)}s de intervalo cadenciado...`);
+          await delay(jitterDelay);
+
           this.logger.log(`Acessando detalhes do anúncio: ${item.title}`);
-          const detailPage = await browser.newPage();
-          await detailPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 20000 });
+          const detailPage = await context.newPage();
+
+          // Injeta evasão de bot na nova aba
+          await detailPage.addInitScript(() => {
+            Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+          });
+
+          const response = await detailPage.goto(item.link, {
+            waitUntil: "domcontentloaded",
+            timeout: 25000,
+          });
+
+          // Detecção de Login Wall ou Captcha
+          const currentUrl = detailPage.url();
+          if (currentUrl.includes("/login") || currentUrl.includes("/checkpoint") || response?.status() === 429) {
+            this.logger.warn(`Detectado Login Wall ou Bloqueio do Facebook. Abortando navegação desse link.`);
+            await detailPage.close().catch(() => undefined);
+            // Aplica um cooldown de descanso maior
+            await delay(12000);
+            
+            // Adiciona com dados básicos para não perder o lead
+            finalLeads.push({
+              name: item.title,
+              address: "Marketplace - Anunciante",
+              phone: "",
+              website: "",
+              rating: "N/A",
+              hasWebsite: false,
+              referenceLink: item.link,
+              source: "facebook_marketplace",
+              category: `Preço: ${item.price} (Bloqueio de visualização da descrição)`,
+            });
+            continue;
+          }
+
+          // Simulação de leitura de usuário: Pequenos scrolls lentos e aleatórios
+          await detailPage.evaluate(async () => {
+            window.scrollBy(0, 150);
+            await new Promise((r) => setTimeout(r, 1000));
+            window.scrollBy(0, 200);
+            await new Promise((r) => setTimeout(r, 800));
+            window.scrollBy(0, -100);
+          });
+
           await detailPage.waitForTimeout(2000);
 
-          // Captura o bloco de descrição do anúncio
+          // Captura a descrição do anúncio
           const rawDescription = await detailPage.evaluate(() => {
-            // O FB costuma conter spans com as palavras da descrição
             const selectors = [
               '[style*="webkit-line-clamp"]',
               '.xz9dl7a.xsag5q8',
               'span:has-text("Descrição")',
-              'div:has-text("Descrição")'
+              'div:has-text("Descrição")',
             ];
-            
+
             for (const sel of selectors) {
               const el = document.querySelector(sel);
               if (el) {
-                // Se for o cabeçalho "Descrição", tenta pegar o irmão seguinte
                 if (el.textContent === "Descrição" && el.nextElementSibling) {
                   return el.nextElementSibling.textContent || "";
                 }
@@ -131,32 +212,28 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
               }
             }
 
-            // Fallback: junta todos os blocos de texto grandes da página do item
-            const spans = Array.from(document.querySelectorAll('span'));
+            const spans = Array.from(document.querySelectorAll("span"));
             const largeTexts = spans
-              .map(s => s.textContent?.trim() || "")
-              .filter(t => t.length > 40 && !t.includes("Facebook") && !t.includes("Termos"));
+              .map((s) => s.textContent?.trim() || "")
+              .filter((t) => t.length > 40 && !t.includes("Facebook") && !t.includes("Termos"));
             return largeTexts.join("\n");
           });
 
-          detailPage.close().catch(() => undefined);
+          await detailPage.close().catch(() => undefined);
 
           finalLeads.push({
             name: item.title,
             address: `Marketplace - Anunciante`,
-            phone: "", // IA irá preencher a partir da descrição
+            phone: "",
             website: "",
             rating: "N/A",
             hasWebsite: false,
             referenceLink: item.link,
             source: "facebook_marketplace",
-            // Passamos a descrição no campo category para ser lida pelo LeadExtractorService
             category: `Preço: ${item.price}\nDescrição do anúncio:\n${rawDescription}`,
           });
-
         } catch (detailError) {
           this.logger.warn(`Erro ao carregar detalhes do anúncio ${item.link}: ${detailError}`);
-          // Se falhar os detalhes, adiciona com as informações básicas do card inicial
           finalLeads.push({
             name: item.title,
             address: "Marketplace - Anunciante",
@@ -172,10 +249,12 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
       }
 
       await page.close();
+      await context.close();
       return finalLeads;
     } catch (error) {
       this.logger.error(`Erro ao raspar Marketplace do Facebook: ${error}`);
-      await page.close();
+      await page.close().catch(() => undefined);
+      await context.close().catch(() => undefined);
       return [];
     }
   }
@@ -187,3 +266,4 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
     }
   }
 }
+
