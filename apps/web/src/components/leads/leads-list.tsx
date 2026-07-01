@@ -20,10 +20,12 @@ export function LeadsList() {
     const matchSearch =
       !search ||
       lead.name.toLowerCase().includes(search.toLowerCase()) ||
+      (lead.tradeName || "").toLowerCase().includes(search.toLowerCase()) ||
+      (lead.cnpj || "").includes(search.replace(/\D/g, "")) ||
       (lead.address || "").toLowerCase().includes(search.toLowerCase()) ||
       (lead.phone || "").toLowerCase().includes(search.toLowerCase());
     const matchPriority = priority === "all" || lead.priority === priority;
-    const matchCrm = crmStatus === "all" ? lead.crmStatus !== "new" : lead.crmStatus === crmStatus;
+    const matchCrm = crmStatus === "all" || lead.crmStatus === crmStatus;
     return matchSearch && matchPriority && matchCrm;
   });
 
@@ -33,7 +35,7 @@ export function LeadsList() {
         <div className="relative min-w-0 flex-1">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            placeholder="Buscar por empresa, endereço ou telefone..."
+            placeholder="Buscar por empresa, CNPJ, endereço ou telefone..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="h-11 rounded-xl border-slate-200 bg-slate-50 pl-11 focus-visible:bg-white"
@@ -49,17 +51,19 @@ export function LeadsList() {
           </SelectContent>
         </Select>
         <Select value={crmStatus} onValueChange={setCrmStatus}>
-          <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white lg:w-44"><SelectValue placeholder="Status CRM" /></SelectTrigger>
+          <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white lg:w-52"><SelectValue placeholder="Status CRM" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="new">Novo</SelectItem>
-            <SelectItem value="contacted">Contatado</SelectItem>
-            <SelectItem value="replied">Respondeu</SelectItem>
-            <SelectItem value="meeting">Reunião</SelectItem>
-            <SelectItem value="proposal">Proposta</SelectItem>
-            <SelectItem value="won">Ganho</SelectItem>
+            <SelectItem value="potential_customer">Potencial Cliente</SelectItem>
+            <SelectItem value="contacted">Em Contato</SelectItem>
+            <SelectItem value="qualified">Qualificado</SelectItem>
+            <SelectItem value="proposal">Proposta Enviada</SelectItem>
+            <SelectItem value="negotiation">Negociação</SelectItem>
+            <SelectItem value="won">Cliente</SelectItem>
+            <SelectItem value="not_interested">Sem Interesse</SelectItem>
             <SelectItem value="lost">Perdido</SelectItem>
-            <SelectItem value="contact_later">Contatar futuramente</SelectItem>
+            <SelectItem value="archived">Arquivado</SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline" className="h-11 w-full rounded-xl bg-white lg:ml-auto lg:w-auto" onClick={() => api.download("/export/leads/csv", "leads-all.csv")}>

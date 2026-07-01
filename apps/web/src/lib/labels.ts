@@ -6,15 +6,16 @@ export const priorityLabel: Record<string, string> = {
 
 export const crmStatusLabel: Record<string, string> = {
   new: "Novo",
-  contacted: "Contatado",
-  replied: "Respondeu",
-  meeting: "Reunião",
-  proposal: "Proposta",
-  won: "Ganho",
+  potential_customer: "Potencial Cliente",
+  contacted: "Em Contato",
+  qualified: "Qualificado",
+  proposal: "Proposta Enviada",
+  negotiation: "Negociação",
+  won: "Cliente",
+  not_interested: "Sem Interesse",
   lost: "Perdido",
-  contact_later: "Contatar futuramente",
+  archived: "Arquivado",
 };
-
 
 export const campaignStatusLabel: Record<string, string> = {
   draft: "Rascunho",

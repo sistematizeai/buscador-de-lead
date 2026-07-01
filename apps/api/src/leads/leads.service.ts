@@ -12,17 +12,26 @@ import {
 const DEFAULT_WORKSPACE_ID = "default-workspace";
 const CRM_LABELS: Record<string, string> = {
   new: "Novo",
+  potential_customer: "Potencial Cliente",
   contacted: "Contatado",
-  replied: "Respondeu",
-  meeting: "Reunião",
-  proposal: "Proposta",
+  qualified: "Qualificado",
+  proposal: "Proposta Enviada",
+  negotiation: "Negociação",
   won: "Ganho",
+  not_interested: "Sem Interesse",
   lost: "Perdido",
+  archived: "Arquivado",
 };
 
 export interface LeadCreateInput {
   name: string;
+  tradeName?: string | null;
+  cnpj?: string | null;
+  businessStatus?: string | null;
+  industry?: string | null;
+  cnae?: string | null;
   address?: string | null;
+  zipCode?: string | null;
   phone?: string | null;
   email?: string | null;
   website?: string | null;
@@ -38,8 +47,14 @@ export interface LeadCreateInput {
   priority?: string;
   marketingContent?: object | null;
   aiAnalysis?: object | null;
-  campaignId: string;
+  campaignId?: string | null;
   workspaceId: string;
+  searchOrigin?: string | null;
+  searchProvider?: string | null;
+  assignedUserId?: string | null;
+  tags?: string[];
+  crmStatus?: string;
+  crmNotes?: string | null;
 }
 
 @Injectable()
@@ -78,7 +93,7 @@ export class LeadsService {
       data: {
         ...dto,
         ...(dto.crmStatus === "contacted" && { contactedAt: now }),
-        ...(dto.crmStatus === "replied" && { repliedAt: now }),
+        ...(dto.crmStatus === "qualified" && { repliedAt: now }),
         ...(["won", "lost"].includes(dto.crmStatus ?? "") && { closedAt: now }),
       },
     });
@@ -124,6 +139,7 @@ export class LeadsService {
               instagramUrl: true,
               referenceUrl: true,
               dedupeKey: true,
+              cnpj: true,
             },
           });
 
@@ -141,6 +157,7 @@ export class LeadsService {
   private withDedupeKeys<T extends LeadCreateInput>(leads: T[]) {
     return leads.map((lead) => ({
       ...lead,
+      cnpj: lead.cnpj ? lead.cnpj.replace(/\D/g, "") : lead.cnpj,
       dedupeKey: lead.dedupeKey || buildLeadDedupeKey(lead),
     }));
   }
@@ -188,8 +205,10 @@ export class LeadsService {
       const phone = normalizeLeadPhone(lead.phone);
       const name = normalizeLeadText(lead.name);
       const address = normalizeLeadText(lead.address);
+      const cnpj = lead.cnpj?.replace(/\D/g, "");
       const dedupeKey = lead.dedupeKey || buildLeadDedupeKey(lead);
 
+      if (cnpj) addUnique({ cnpj: { equals: cnpj } }, `cnpj:${cnpj}`, seen);
       if (dedupeKey) addUnique({ dedupeKey: { equals: dedupeKey } }, `dedupe:${dedupeKey}`, seen);
       if (name) addUnique({ name: { contains: lead.name.trim(), mode: "insensitive" } }, `name:${name}`, seen);
       if (referenceUrl) addUnique({ referenceUrl: { equals: lead.referenceUrl } }, `ref:${referenceUrl}`, seen);
@@ -197,19 +216,28 @@ export class LeadsService {
       if (instagramUrl) addUnique({ instagramUrl: { equals: lead.instagramUrl } }, `ig:${instagramUrl}`, seen);
       if (phone) addUnique({ phone: { equals: lead.phone } }, `phone:${phone}`, seen);
       if (name && address) {
-        addUnique({
-          AND: [
-            { name: { equals: lead.name, mode: "insensitive" } },
-            { address: { equals: lead.address, mode: "insensitive" } },
-          ],
-        }, `name-address:${name}|${address}`, seen);
+        addUnique(
+          {
+            AND: [
+              { name: { equals: lead.name, mode: "insensitive" } },
+              { address: { equals: lead.address, mode: "insensitive" } },
+            ],
+          },
+          `name-address:${name}|${address}`,
+          seen,
+        );
       }
     }
 
     return conditions.length > 0 ? conditions : [{ id: "__never__" }];
   }
 
-  private getLeadDuplicateKeys(lead: Pick<LeadCreateInput, "name" | "address" | "phone" | "website" | "instagramUrl" | "referenceUrl" | "dedupeKey">) {
+  private getLeadDuplicateKeys(
+    lead: Pick<
+      LeadCreateInput,
+      "name" | "address" | "phone" | "website" | "instagramUrl" | "referenceUrl" | "dedupeKey" | "cnpj"
+    >,
+  ) {
     return getLeadDuplicateKeys(lead);
   }
 }

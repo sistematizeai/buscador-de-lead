@@ -10,6 +10,8 @@ import { AiModule } from "./ai/ai.module";
 import { SettingsModule } from "./settings/settings.module";
 import { ExportModule } from "./export/export.module";
 import { AuthModule } from "./auth/auth.module";
+import { SecurityModule } from "./security/security.module";
+import { CompanySearchModule } from "./company-search/company-search.module";
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { AuthModule } from "./auth/auth.module";
     SettingsModule,
     ExportModule,
     AuthModule,
+    SecurityModule,
+    CompanySearchModule,
   ],
   controllers: [AppController],
 })

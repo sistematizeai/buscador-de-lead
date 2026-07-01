@@ -3,10 +3,12 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { SettingsService } from "./settings.service";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
+import { PermissionsGuard } from "../auth/permissions.guard";
+import { RequirePermissions } from "../auth/permissions";
 
 @ApiTags("Configurações")
 @ApiBearerAuth()
-@UseGuards(JwtGuard)
+@UseGuards(JwtGuard, PermissionsGuard)
 @Controller("settings")
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
@@ -34,12 +36,14 @@ export class SettingsController {
 
   @Get("api-keys")
   @ApiOperation({ summary: "Lista chaves de API" })
+  @RequirePermissions("settings.manage_api_keys")
   listApiKeys(@WorkspaceId() workspaceId: string) {
     return this.settingsService.listApiKeys(workspaceId);
   }
 
   @Post("api-keys")
   @ApiOperation({ summary: "Cria uma nova chave de API" })
+  @RequirePermissions("settings.manage_api_keys")
   createApiKey(
     @WorkspaceId() workspaceId: string,
     @Body() body: { name: string },
@@ -49,5 +53,8 @@ export class SettingsController {
 
   @Delete("api-keys/:id")
   @ApiOperation({ summary: "Remove uma chave de API" })
-  deleteApiKey(@Param("id") id: string) { return this.settingsService.deleteApiKey(id); }
+  @RequirePermissions("settings.manage_api_keys")
+  deleteApiKey(@Param("id") id: string, @WorkspaceId() workspaceId: string) {
+    return this.settingsService.deleteApiKey(id, workspaceId);
+  }
 }

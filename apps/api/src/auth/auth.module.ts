@@ -4,9 +4,14 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtGuard } from "./jwt.guard";
+import { PermissionsGuard } from "./permissions.guard";
+import { SecurityModule } from "../security/security.module";
+import { PrismaModule } from "../prisma/prisma.module";
 
 @Module({
   imports: [
+    SecurityModule,
+    PrismaModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -18,7 +23,7 @@ import { JwtGuard } from "./jwt.guard";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtGuard],
-  exports: [JwtModule, JwtGuard],
+  providers: [AuthService, JwtGuard, PermissionsGuard],
+  exports: [JwtModule, JwtGuard, PermissionsGuard],
 })
 export class AuthModule {}

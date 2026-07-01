@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { existsSync } from "node:fs";
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { resolveGosomBinaryPath } from "../scraper/providers/gosom-google-maps.provider";
@@ -106,8 +106,10 @@ export class SettingsService {
     return this.prisma.apiKey.create({ data: { name, key, workspaceId } });
   }
 
-  async deleteApiKey(id: string) {
-    return this.prisma.apiKey.delete({ where: { id } });
+  async deleteApiKey(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
+    const apiKey = await this.prisma.apiKey.findFirst({ where: { id, workspaceId }, select: { id: true } });
+    if (!apiKey) throw new NotFoundException("Chave de API não encontrada");
+    return this.prisma.apiKey.delete({ where: { id: apiKey.id } });
   }
 
   private sanitizeIntegrationConfig(config?: Record<string, string> | null) {

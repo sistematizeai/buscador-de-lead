@@ -70,6 +70,9 @@ const modelCounters = [
   ["sessions", () => prisma.session.count()],
   ["accounts", () => prisma.account.count()],
   ["verifications", () => prisma.verification.count()],
+  ["passwordResetTokens", () => prisma.passwordResetToken.count()],
+  ["securityAuditLogs", () => prisma.securityAuditLog.count()],
+  ["companySearchLogs", () => prisma.companySearchLog.count()],
   ["campaigns", () => prisma.campaign.count()],
   ["leads", () => prisma.lead.count()],
   ["leadActivities", () => prisma.leadActivity.count()],
@@ -94,7 +97,7 @@ async function collectHealth() {
     SELECT tablename
     FROM pg_tables
     WHERE schemaname = 'public'
-      AND tablename IN ('workspaces','users','workspace_members','sessions','accounts','verifications','campaigns','leads','lead_activities','follow_ups','contacts','integrations','api_keys')
+      AND tablename IN ('workspaces','users','workspace_members','sessions','accounts','verifications','password_reset_tokens','security_audit_logs','company_search_logs','campaigns','leads','lead_activities','follow_ups','contacts','integrations','api_keys')
     ORDER BY tablename
   `;
 
@@ -132,8 +135,8 @@ async function collectHealth() {
     SELECT 'leads_without_workspace', COUNT(*)::int
       FROM leads l LEFT JOIN workspaces w ON w.id = l."workspaceId" WHERE w.id IS NULL
     UNION ALL
-    SELECT 'leads_without_campaign', COUNT(*)::int
-      FROM leads l LEFT JOIN campaigns c ON c.id = l."campaignId" WHERE c.id IS NULL
+    SELECT 'leads_with_broken_campaign', COUNT(*)::int
+      FROM leads l LEFT JOIN campaigns c ON c.id = l."campaignId" WHERE l."campaignId" IS NOT NULL AND c.id IS NULL
     UNION ALL
     SELECT 'members_without_user', COUNT(*)::int
       FROM workspace_members wm LEFT JOIN users u ON u.id = wm."userId" WHERE u.id IS NULL
@@ -160,7 +163,7 @@ async function collectHealth() {
   return {
     ok:
       ping[0]?.ok === 1 &&
-      tables.length === 13 &&
+      tables.length === 16 &&
       duplicateKeyRows.length === 0 &&
       indexRows.length > 0 &&
       failedOrphanChecks.length === 0 &&

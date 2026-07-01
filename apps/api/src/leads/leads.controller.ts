@@ -4,10 +4,12 @@ import { LeadsService } from "./leads.service";
 import { UpdateCrmDto } from "./dto/update-crm.dto";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
+import { PermissionsGuard } from "../auth/permissions.guard";
+import { RequirePermissions } from "../auth/permissions";
 
 @ApiTags("Leads")
 @ApiBearerAuth()
-@UseGuards(JwtGuard)
+@UseGuards(JwtGuard, PermissionsGuard)
 @Controller("leads")
 export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
@@ -15,6 +17,7 @@ export class LeadsController {
   @Get()
   @ApiOperation({ summary: "Lista todos os leads" })
   @ApiQuery({ name: "campaignId", required: false })
+  @RequirePermissions("crm.read")
   findAll(
     @WorkspaceId() workspaceId: string,
     @Query("campaignId") campaignId?: string,
@@ -24,6 +27,7 @@ export class LeadsController {
 
   @Get(":id")
   @ApiOperation({ summary: "Busca lead por ID" })
+  @RequirePermissions("crm.read")
   findOne(
     @Param("id") id: string,
     @WorkspaceId() workspaceId: string,
@@ -33,6 +37,7 @@ export class LeadsController {
 
   @Patch(":id/crm")
   @ApiOperation({ summary: "Atualiza o status CRM de um lead" })
+  @RequirePermissions("crm.update")
   updateCrm(
     @Param("id") id: string,
     @Body() dto: UpdateCrmDto,

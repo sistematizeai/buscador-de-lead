@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
+  Search,
   Settings,
   Users,
   Zap,
@@ -21,6 +22,7 @@ import { cn, getInitials } from "@/lib/utils";
 const navItems = [
   { title: "Painel", href: "/dashboard", icon: LayoutDashboard },
   { title: "Campanhas", href: "/campaigns", icon: Megaphone },
+  { title: "Localizar Empresa", href: "/company-search", icon: Search },
   { title: "Leads", href: "/leads", icon: Users },
   { title: "Análises", href: "/analytics", icon: BarChart3 },
 ];

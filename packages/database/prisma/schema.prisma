@@ -25,6 +25,8 @@ model Workspace {
   contacts     Contact[]
   integrations Integration[]
   apiKeys      ApiKey[]
+  securityAuditLogs SecurityAuditLog[]
+  companySearchLogs CompanySearchLog[]
 
   @@map("workspaces")
 }
@@ -35,12 +37,16 @@ model User {
   email         String   @unique
   emailVerified Boolean  @default(false)
   image         String?
+  sessionVersion Int     @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  memberships WorkspaceMember[]
-  sessions    Session[]
-  accounts    Account[]
+  memberships         WorkspaceMember[]
+  sessions            Session[]
+  accounts            Account[]
+  passwordResetTokens PasswordResetToken[]
+  securityAuditLogs   SecurityAuditLog[]
+  companySearchLogs   CompanySearchLog[]
 
   @@map("users")
 }
@@ -105,6 +111,59 @@ model Verification {
   @@map("verifications")
 }
 
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model SecurityAuditLog {
+  id          String   @id @default(cuid())
+  event       String
+  outcome     String   @default("success")
+  ipAddress   String?
+  userAgent   String?
+  requestId   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String?
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId      String?
+
+  @@index([workspaceId, event, createdAt])
+  @@index([userId, event, createdAt])
+  @@map("security_audit_logs")
+}
+
+model CompanySearchLog {
+  id        String   @id @default(cuid())
+  query     Json
+  provider  String
+  status    String
+  resultId  String?
+  createdAt DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+
+  @@index([workspaceId, createdAt])
+  @@map("company_search_logs")
+}
+
 // ============ CAMPAIGNS ============
 
 model Campaign {
@@ -145,7 +204,13 @@ model Campaign {
 model Lead {
   id             String  @id @default(cuid())
   name           String
+  tradeName      String?
+  cnpj           String?
+  businessStatus String?
+  industry       String?
+  cnae           String?
   address        String?
+  zipCode        String?
   phone          String?
   email          String?
   website        String?
@@ -166,6 +231,10 @@ model Lead {
 
   crmStatus    String    @default("new")
   crmNotes     String?
+  assignedUserId String?
+  tags          String[]  @default([])
+  searchOrigin  String?
+  searchProvider String?
   followUpDate DateTime?
   contactedAt  DateTime?
   repliedAt    DateTime?
@@ -178,8 +247,8 @@ model Lead {
 
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String
-  campaign    Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  campaignId  String
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaignId  String?
   contact     Contact?  @relation(fields: [contactId], references: [id])
   contactId   String?
 
@@ -187,6 +256,8 @@ model Lead {
   followUps  FollowUp[]
 
   @@unique([workspaceId, dedupeKey])
+  @@unique([workspaceId, cnpj])
+  @@index([workspaceId, crmStatus])
   @@map("leads")
 }
 

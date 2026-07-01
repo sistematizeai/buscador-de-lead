@@ -88,8 +88,8 @@ export function LoginForm() {
             required
           />
           <div className="text-right mt-1.5">
-            <a href="#" className="text-xs text-blue-200 hover:text-white transition-colors">
-              Forgot Password?
+            <a href="/forgot-password" className="text-xs text-blue-200 hover:text-white transition-colors">
+              Esqueci minha senha
             </a>
           </div>
         </div>

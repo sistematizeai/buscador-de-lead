@@ -6,6 +6,7 @@ export interface LeadDedupeInput {
   instagramUrl?: string | null;
   referenceUrl?: string | null;
   dedupeKey?: string | null;
+  cnpj?: string | null;
 }
 
 export function buildLeadDedupeKey(lead: LeadDedupeInput) {
@@ -21,6 +22,7 @@ export function getLeadDuplicateKeys(lead: LeadDedupeInput) {
 
 function getComputedLeadDuplicateKeys(lead: LeadDedupeInput) {
   const keys = [
+    normalizeLeadCnpj(lead.cnpj) ? `cnpj:${normalizeLeadCnpj(lead.cnpj)}` : null,
     normalizeLeadUrl(lead.referenceUrl) ? `ref:${normalizeLeadUrl(lead.referenceUrl)}` : null,
     normalizeLeadUrl(lead.website) ? `site:${normalizeLeadUrl(lead.website)}` : null,
     normalizeLeadUrl(lead.instagramUrl) ? `ig:${normalizeLeadUrl(lead.instagramUrl)}` : null,
@@ -59,6 +61,11 @@ export function normalizeLeadUrl(value?: string | null) {
 
 export function normalizeLeadPhone(value?: string | null) {
   return (value ?? "").replace(/\D/g, "");
+}
+
+export function normalizeLeadCnpj(value?: string | null) {
+  const digits = (value ?? "").replace(/\D/g, "");
+  return digits.length === 14 ? digits : "";
 }
 
 function unique(values: string[]) {

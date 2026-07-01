@@ -18,13 +18,15 @@ function PriorityBadge({ priority }: { priority: Lead["priority"] }) {
 function CrmBadge({ status }: { status: Lead["crmStatus"] }) {
   const map: Record<Lead["crmStatus"], "secondary" | "info" | "warning" | "success" | "destructive"> = {
     new: "secondary",
+    potential_customer: "info",
     contacted: "info",
-    replied: "info",
-    meeting: "warning",
+    qualified: "success",
     proposal: "warning",
+    negotiation: "warning",
     won: "success",
+    not_interested: "secondary",
     lost: "destructive",
-    contact_later: "info",
+    archived: "secondary",
   };
   return <Badge variant={map[status]}>{crmStatusLabel[status] ?? status}</Badge>;
 }

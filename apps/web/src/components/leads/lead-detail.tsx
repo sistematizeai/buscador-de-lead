@@ -208,13 +208,15 @@ export function LeadDetail({ id, isModal = false }: { id: string; isModal?: bool
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="new">{crmStatusLabel.new}</SelectItem>
+                  <SelectItem value="potential_customer">{crmStatusLabel.potential_customer}</SelectItem>
                   <SelectItem value="contacted">{crmStatusLabel.contacted}</SelectItem>
-                  <SelectItem value="replied">{crmStatusLabel.replied}</SelectItem>
-                  <SelectItem value="meeting">{crmStatusLabel.meeting}</SelectItem>
+                  <SelectItem value="qualified">{crmStatusLabel.qualified}</SelectItem>
                   <SelectItem value="proposal">{crmStatusLabel.proposal}</SelectItem>
+                  <SelectItem value="negotiation">{crmStatusLabel.negotiation}</SelectItem>
                   <SelectItem value="won">{crmStatusLabel.won}</SelectItem>
+                  <SelectItem value="not_interested">{crmStatusLabel.not_interested}</SelectItem>
                   <SelectItem value="lost">{crmStatusLabel.lost}</SelectItem>
-                  <SelectItem value="contact_later">{crmStatusLabel.contact_later}</SelectItem>
+                  <SelectItem value="archived">{crmStatusLabel.archived}</SelectItem>
                 </SelectContent>
               </Select>
               <Button

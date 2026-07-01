@@ -17,6 +17,10 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: ENABLE_SWAGGER
+        value: false
+      - key: PASSWORD_RESET_DEV_RESPONSE
+        value: false
       - key: NEXT_PUBLIC_APP_URL
         sync: false
       - key: CORS_ALLOWED_ORIGINS
@@ -29,6 +33,10 @@ services:
         value: gpt-4o-mini
       - key: OPENAI_MAX_TOKENS
         value: 1000
+      - key: COMPANY_CNPJ_PROVIDER_URL
+        value: https://brasilapi.com.br/api/cnpj/v1
+      - key: COMPANY_SEARCH_TIMEOUT_MS
+        value: 8000
       - key: SCRAPER_PROVIDER
         value: gosom
       - key: GOSOM_BINARY_PATH

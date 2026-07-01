@@ -33,8 +33,8 @@ export class CampaignsController {
 
   @Patch(":id")
   @ApiOperation({ summary: "Atualiza uma campanha" })
-  update(@Param("id") id: string, @Body() dto: UpdateCampaignDto) {
-    return this.campaignsService.update(id, dto);
+  update(@Param("id") id: string, @Body() dto: UpdateCampaignDto, @WorkspaceId() workspaceId: string) {
+    return this.campaignsService.update(id, dto, workspaceId);
   }
 
   @Delete(":id")

@@ -4,10 +4,12 @@ import { Response } from "express";
 import { ExportService } from "./export.service";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
+import { PermissionsGuard } from "../auth/permissions.guard";
+import { RequirePermissions } from "../auth/permissions";
 
 @ApiTags("Exportação")
 @ApiBearerAuth()
-@UseGuards(JwtGuard)
+@UseGuards(JwtGuard, PermissionsGuard)
 @Controller("export")
 export class ExportController {
   constructor(private readonly exportService: ExportService) {}
@@ -16,6 +18,7 @@ export class ExportController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Exporta leads em CSV" })
   @ApiQuery({ name: "campaignId", required: false })
+  @RequirePermissions("crm.export")
   async exportCsv(
     @WorkspaceId() workspaceId: string,
     @Query("campaignId") campaignId: string | undefined,
@@ -33,6 +36,7 @@ export class ExportController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Exporta leads em JSON" })
   @ApiQuery({ name: "campaignId", required: false })
+  @RequirePermissions("crm.export")
   async exportJson(
     @WorkspaceId() workspaceId: string,
     @Query("campaignId") campaignId: string | undefined,
@@ -50,6 +54,7 @@ export class ExportController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Exporta leads em vCard (.vcf)" })
   @ApiQuery({ name: "campaignId", required: false })
+  @RequirePermissions("crm.export")
   async exportVCard(
     @WorkspaceId() workspaceId: string,
     @Query("campaignId") campaignId: string | undefined,

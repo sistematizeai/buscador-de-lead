@@ -9,20 +9,35 @@ interface RefreshOptions {
 export interface Lead {
   id: string;
   name: string;
+  tradeName?: string | null;
+  cnpj?: string | null;
+  businessStatus?: string | null;
   address: string;
+  zipCode?: string | null;
   phone: string;
+  email?: string | null;
   website: string;
   instagramUrl?: string | null;
   rating: string;
   score: number;
   priority: "HIGH" | "MEDIUM" | "LOW";
-  crmStatus: "new" | "contacted" | "replied" | "meeting" | "proposal" | "won" | "lost" | "contact_later";
+  crmStatus:
+    | "new"
+    | "potential_customer"
+    | "contacted"
+    | "qualified"
+    | "proposal"
+    | "negotiation"
+    | "won"
+    | "not_interested"
+    | "lost"
+    | "archived";
   crmNotes?: string;
   hasWebsite: boolean;
   industry?: string;
   category?: string;
-  campaignId: string;
-  campaign?: { id: string; name: string };
+  campaignId?: string | null;
+  campaign?: { id: string; name: string } | null;
   marketingContent?: {
     email?: { subject: string; body: string };
     whatsapp?: string;
