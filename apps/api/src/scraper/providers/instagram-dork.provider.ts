@@ -220,7 +220,9 @@ export class InstagramDorkProvider implements ScraperProvider {
                 const urlObj = new URL(rawLink);
                 link = urlObj.searchParams.get("uddg") || rawLink;
               }
-            } catch {}
+            } catch {
+              /* ignore */
+            }
 
             const title = titleEl?.textContent?.trim() ?? "";
             const description = descriptionEl?.textContent?.trim() ?? "";
@@ -231,7 +233,7 @@ export class InstagramDorkProvider implements ScraperProvider {
       });
 
       this.logger.log(`DuckDuckGo retornou ${results.length} links do Instagram.`);
-      return results;
+      return results.slice(0, maxResults);
     } finally {
       await page.close();
     }
