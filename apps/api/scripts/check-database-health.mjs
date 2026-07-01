@@ -72,6 +72,7 @@ const modelCounters = [
   ["verifications", () => prisma.verification.count()],
   ["passwordResetTokens", () => prisma.passwordResetToken.count()],
   ["securityAuditLogs", () => prisma.securityAuditLog.count()],
+  ["securityRateLimitBuckets", () => prisma.securityRateLimitBucket.count()],
   ["companySearchLogs", () => prisma.companySearchLog.count()],
   ["campaigns", () => prisma.campaign.count()],
   ["leads", () => prisma.lead.count()],
@@ -97,7 +98,7 @@ async function collectHealth() {
     SELECT tablename
     FROM pg_tables
     WHERE schemaname = 'public'
-      AND tablename IN ('workspaces','users','workspace_members','sessions','accounts','verifications','password_reset_tokens','security_audit_logs','company_search_logs','campaigns','leads','lead_activities','follow_ups','contacts','integrations','api_keys')
+      AND tablename IN ('workspaces','users','workspace_members','sessions','accounts','verifications','password_reset_tokens','security_audit_logs','security_rate_limit_buckets','company_search_logs','campaigns','leads','lead_activities','follow_ups','contacts','integrations','api_keys')
     ORDER BY tablename
   `;
 
@@ -146,6 +147,12 @@ async function collectHealth() {
     UNION ALL
     SELECT 'accounts_without_user', COUNT(*)::int
       FROM accounts a LEFT JOIN users u ON u.id = a."userId" WHERE u.id IS NULL
+    UNION ALL
+    SELECT 'rate_limit_buckets_with_broken_workspace', COUNT(*)::int
+      FROM security_rate_limit_buckets r LEFT JOIN workspaces w ON w.id = r.workspace_id WHERE r.workspace_id IS NOT NULL AND w.id IS NULL
+    UNION ALL
+    SELECT 'rate_limit_buckets_with_broken_user', COUNT(*)::int
+      FROM security_rate_limit_buckets r LEFT JOIN users u ON u.id = r.user_id WHERE r.user_id IS NOT NULL AND u.id IS NULL
   `;
 
   const sentinel = `health-check-${Date.now()}`;
@@ -163,7 +170,7 @@ async function collectHealth() {
   return {
     ok:
       ping[0]?.ok === 1 &&
-      tables.length === 16 &&
+      tables.length === 17 &&
       duplicateKeyRows.length === 0 &&
       indexRows.length > 0 &&
       failedOrphanChecks.length === 0 &&

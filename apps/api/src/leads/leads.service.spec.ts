@@ -202,4 +202,27 @@ describe("LeadsService duplicate protection", () => {
       skipDuplicates: true,
     });
   });
+
+  it("updates CRM status using lead id and workspace together", async () => {
+    const prisma = {
+      lead: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findFirst: vi.fn().mockResolvedValue({ id: "lead-1", workspaceId: "workspace-1", crmStatus: "contacted" }),
+      },
+      leadActivity: {
+        create: vi.fn().mockResolvedValue({ id: "activity-1" }),
+      },
+    };
+    const service = new LeadsService(prisma as never);
+
+    await service.updateCrm("lead-1", { crmStatus: "contacted" }, "workspace-1");
+
+    expect(prisma.lead.updateMany).toHaveBeenCalledWith({
+      where: { id: "lead-1", workspaceId: "workspace-1" },
+      data: expect.objectContaining({
+        crmStatus: "contacted",
+        contactedAt: expect.any(Date),
+      }),
+    });
+  });
 });

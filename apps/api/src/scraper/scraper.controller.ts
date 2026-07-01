@@ -4,10 +4,12 @@ import { ScraperProcessor } from "./scraper.processor";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
+import { PermissionsGuard } from "../auth/permissions.guard";
+import { RequirePermissions } from "../auth/permissions";
 
 @ApiTags("Scraper")
 @ApiBearerAuth()
-@UseGuards(JwtGuard)
+@UseGuards(JwtGuard, PermissionsGuard)
 @Controller("scraper")
 export class ScraperController {
   constructor(
@@ -18,6 +20,7 @@ export class ScraperController {
   @Post("campaigns/:id/start")
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: "Inicia a busca de leads da campanha" })
+  @RequirePermissions("campaigns.run")
   async startCampaign(
     @Param("id") id: string,
     @WorkspaceId() workspaceId: string,
@@ -30,6 +33,7 @@ export class ScraperController {
   @Post("campaigns/:id/retry")
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: "Tenta novamente uma campanha que falhou" })
+  @RequirePermissions("campaigns.run")
   async retryCampaign(
     @Param("id") id: string,
     @WorkspaceId() workspaceId: string,

@@ -27,6 +27,7 @@ model Workspace {
   apiKeys      ApiKey[]
   securityAuditLogs SecurityAuditLog[]
   companySearchLogs CompanySearchLog[]
+  securityRateLimitBuckets SecurityRateLimitBucket[]
 
   @@map("workspaces")
 }
@@ -47,6 +48,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   securityAuditLogs   SecurityAuditLog[]
   companySearchLogs   CompanySearchLog[]
+  securityRateLimitBuckets SecurityRateLimitBucket[]
 
   @@map("users")
 }
@@ -145,6 +147,29 @@ model SecurityAuditLog {
   @@index([workspaceId, event, createdAt])
   @@index([userId, event, createdAt])
   @@map("security_audit_logs")
+}
+
+model SecurityRateLimitBucket {
+  key       String   @id
+  action    String
+  scope     String
+  limit     Int
+  count     Int      @default(0)
+  windowMs  Int      @map("window_ms")
+  resetAt   DateTime @map("reset_at")
+  endpoint  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String?    @map("workspace_id")
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId      String?    @map("user_id")
+
+  @@index([action, scope, updatedAt])
+  @@index([workspaceId, action, updatedAt])
+  @@index([userId, action, updatedAt])
+  @@map("security_rate_limit_buckets")
 }
 
 model CompanySearchLog {

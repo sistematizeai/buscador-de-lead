@@ -51,17 +51,17 @@ export class ScraperProcessor {
     this.logger.log(`Iniciando campanha ${campaignId}`);
 
     try {
-      await this.campaigns.updateStatus(campaignId, "running", 0);
+      await this.campaigns.updateStatus(campaignId, workspaceId, "running", 0);
 
       const rawLeads = await this.scrapeLeads(data);
       let total = rawLeads.length;
 
       if (total === 0) {
-        await this.campaigns.updateStatus(campaignId, "failed", 0, "Nenhum lead encontrado");
+        await this.campaigns.updateStatus(campaignId, workspaceId, "failed", 0, "Nenhum lead encontrado");
         return;
       }
 
-      await this.campaigns.updateStatus(campaignId, "running", 30);
+      await this.campaigns.updateStatus(campaignId, workspaceId, "running", 30);
 
       let processedRawLeads = rawLeads;
 
@@ -99,7 +99,7 @@ export class ScraperProcessor {
         total = processedRawLeads.length;
 
         if (total === 0) {
-          await this.campaigns.updateStatus(campaignId, "failed", 0, "Nenhum lead qualificado encontrado");
+          await this.campaigns.updateStatus(campaignId, workspaceId, "failed", 0, "Nenhum lead qualificado encontrado");
           return;
         }
       }
@@ -107,7 +107,7 @@ export class ScraperProcessor {
       processedRawLeads = await this.enrichInstagramProfiles(processedRawLeads, data);
 
       const scoredLeads = this.leadIntelligence.scoreLeads(processedRawLeads, data.industry);
-      await this.campaigns.updateStatus(campaignId, "running", 60);
+      await this.campaigns.updateStatus(campaignId, workspaceId, "running", 60);
 
       const processedLeads = await Promise.all(
         scoredLeads.map(async (lead, index) => {
@@ -136,7 +136,7 @@ export class ScraperProcessor {
 
           if (index % 5 === 0) {
             const pct = 60 + Math.round((index / total) * 35);
-            await this.campaigns.updateStatus(campaignId, "running", pct);
+            await this.campaigns.updateStatus(campaignId, workspaceId, "running", pct);
           }
 
           return {
@@ -177,20 +177,20 @@ export class ScraperProcessor {
           : 0,
       );
 
-      await this.campaigns.updateStats(campaignId, {
+      await this.campaigns.updateStats(campaignId, workspaceId, {
         totalLeads: uniqueProcessedLeads.length,
         priorityLeads: priority,
         highQualityLeads: highQuality,
         averageScore: avgScore,
       });
 
-      await this.campaigns.updateStatus(campaignId, "completed", 100);
+      await this.campaigns.updateStatus(campaignId, workspaceId, "completed", 100);
       this.logger.log(
         `Campanha ${campaignId} concluída: ${uniqueProcessedLeads.length} leads novos, ${priority} prioritários`,
       );
     } catch (err) {
       this.logger.error(`Campanha ${campaignId} falhou: ${err}`);
-      await this.campaigns.updateStatus(campaignId, "failed", undefined, String(err));
+      await this.campaigns.updateStatus(campaignId, workspaceId, "failed", undefined, String(err));
     }
   }
 
@@ -455,7 +455,7 @@ export class ScraperProcessor {
 
       if (lookups % 3 === 0 || lookups === limit) {
         const pct = 35 + Math.round((lookups / limit) * 20);
-        await this.campaigns.updateStatus(data.campaignId, "running", pct);
+        await this.campaigns.updateStatus(data.campaignId, data.workspaceId, "running", pct);
       }
     }
 

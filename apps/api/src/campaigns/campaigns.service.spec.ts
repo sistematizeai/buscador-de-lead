@@ -41,4 +41,36 @@ describe("CampaignsService", () => {
     expect(prisma.campaign.create.mock.calls[0][0].data).not.toHaveProperty("regionConfig");
     expect(prisma.campaign.create.mock.calls[0][0].data).not.toHaveProperty("sources");
   });
+
+  it("updates campaigns using id and workspace together", async () => {
+    const prisma = {
+      campaign: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findFirst: vi.fn().mockResolvedValue({ id: "campaign-1", workspaceId: "workspace-1" }),
+      },
+    };
+    const service = new CampaignsService(prisma as never);
+
+    await service.update("campaign-1", { name: "Campanha segura" }, "workspace-1");
+
+    expect(prisma.campaign.updateMany).toHaveBeenCalledWith({
+      where: { id: "campaign-1", workspaceId: "workspace-1" },
+      data: { name: "Campanha segura" },
+    });
+  });
+
+  it("deletes campaigns using id and workspace together", async () => {
+    const prisma = {
+      campaign: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const service = new CampaignsService(prisma as never);
+
+    await service.remove("campaign-1", "workspace-1");
+
+    expect(prisma.campaign.deleteMany).toHaveBeenCalledWith({
+      where: { id: "campaign-1", workspaceId: "workspace-1" },
+    });
+  });
 });

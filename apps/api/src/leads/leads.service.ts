@@ -86,10 +86,9 @@ export class LeadsService {
   }
 
   async updateCrm(id: string, dto: UpdateCrmDto, workspaceId = DEFAULT_WORKSPACE_ID) {
-    await this.findOne(id, workspaceId);
     const now = new Date();
-    const lead = await this.prisma.lead.update({
-      where: { id },
+    const updated = await this.prisma.lead.updateMany({
+      where: { id, workspaceId },
       data: {
         ...dto,
         ...(dto.crmStatus === "contacted" && { contactedAt: now }),
@@ -97,6 +96,7 @@ export class LeadsService {
         ...(["won", "lost"].includes(dto.crmStatus ?? "") && { closedAt: now }),
       },
     });
+    if (updated.count !== 1) throw new NotFoundException(`Lead ${id} nÃ£o encontrado`);
     await this.prisma.leadActivity.create({
       data: {
         leadId: id,
@@ -105,7 +105,7 @@ export class LeadsService {
         metadata: dto as object,
       },
     });
-    return lead;
+    return this.findOne(id, workspaceId);
   }
 
   async createMany(leads: LeadCreateInput[], options: { alreadyDeduped?: boolean } = {}) {

@@ -16,8 +16,11 @@ export class AuthController {
 
   @Post("register")
   @ApiOperation({ summary: "Register new user + workspace" })
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  register(@Body() dto: RegisterDto, @Req() req: Request) {
+    return this.authService.register(dto, {
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
   }
 
   @Post("login")

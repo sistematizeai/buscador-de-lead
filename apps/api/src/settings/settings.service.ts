@@ -107,9 +107,9 @@ export class SettingsService {
   }
 
   async deleteApiKey(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
-    const apiKey = await this.prisma.apiKey.findFirst({ where: { id, workspaceId }, select: { id: true } });
-    if (!apiKey) throw new NotFoundException("Chave de API não encontrada");
-    return this.prisma.apiKey.delete({ where: { id: apiKey.id } });
+    const deleted = await this.prisma.apiKey.deleteMany({ where: { id, workspaceId } });
+    if (deleted.count !== 1) throw new NotFoundException("Chave de API não encontrada");
+    return { id };
   }
 
   private sanitizeIntegrationConfig(config?: Record<string, string> | null) {

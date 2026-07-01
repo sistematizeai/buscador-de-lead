@@ -198,18 +198,15 @@ describe("SettingsService", () => {
   it("deletes API keys only when they belong to the current workspace", async () => {
     const prisma = {
       apiKey: {
-        findFirst: vi.fn().mockResolvedValue({ id: "key-1" }),
-        delete: vi.fn().mockResolvedValue({ id: "key-1" }),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
     const service = new SettingsService(prisma as never, { get: vi.fn() } as never);
 
     await service.deleteApiKey("key-1", "workspace-1");
 
-    expect(prisma.apiKey.findFirst).toHaveBeenCalledWith({
+    expect(prisma.apiKey.deleteMany).toHaveBeenCalledWith({
       where: { id: "key-1", workspaceId: "workspace-1" },
-      select: { id: true },
     });
-    expect(prisma.apiKey.delete).toHaveBeenCalledWith({ where: { id: "key-1" } });
   });
 });

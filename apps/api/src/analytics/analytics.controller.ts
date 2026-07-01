@@ -1,30 +1,35 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
-import { AnalyticsService } from "./analytics.service";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { JwtGuard } from "../auth/jwt.guard";
+import { PermissionsGuard } from "../auth/permissions.guard";
+import { RequirePermissions } from "../auth/permissions";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
+import { AnalyticsService } from "./analytics.service";
 
-@ApiTags("Análises")
+@ApiTags("Analises")
 @ApiBearerAuth()
-@UseGuards(JwtGuard)
+@UseGuards(JwtGuard, PermissionsGuard)
 @Controller("analytics")
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get()
-  @ApiOperation({ summary: "Busca resumo de análises" })
+  @ApiOperation({ summary: "Busca resumo de analises" })
+  @RequirePermissions("analytics.read")
   getOverview(@WorkspaceId() workspaceId: string) {
     return this.analyticsService.getOverview(workspaceId);
   }
 
   @Get("industries")
   @ApiOperation({ summary: "Busca leads agrupados por nicho" })
+  @RequirePermissions("analytics.read")
   getByIndustry(@WorkspaceId() workspaceId: string) {
     return this.analyticsService.getLeadsByIndustry(workspaceId);
   }
 
   @Get("campaigns")
-  @ApiOperation({ summary: "Busca estatísticas de performance das campanhas" })
+  @ApiOperation({ summary: "Busca estatisticas de performance das campanhas" })
+  @RequirePermissions("analytics.read")
   getCampaignStats(@WorkspaceId() workspaceId: string) {
     return this.analyticsService.getCampaignStats(workspaceId);
   }

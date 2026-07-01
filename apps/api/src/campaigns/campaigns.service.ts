@@ -63,18 +63,23 @@ export class CampaignsService {
   }
 
   async update(id: string, dto: UpdateCampaignDto, workspaceId = DEFAULT_WORKSPACE_ID) {
-    await this.findOne(id, workspaceId);
-    return this.prisma.campaign.update({ where: { id }, data: dto });
+    const updated = await this.prisma.campaign.updateMany({
+      where: { id, workspaceId },
+      data: dto,
+    });
+    if (updated.count !== 1) throw new NotFoundException(`Campanha ${id} nÃ£o encontrada`);
+    return this.findOne(id, workspaceId);
   }
 
   async remove(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
-    await this.findOne(id, workspaceId);
-    return this.prisma.campaign.delete({ where: { id } });
+    const deleted = await this.prisma.campaign.deleteMany({ where: { id, workspaceId } });
+    if (deleted.count !== 1) throw new NotFoundException(`Campanha ${id} nÃ£o encontrada`);
+    return { id };
   }
 
-  async updateStatus(id: string, status: string, progress?: number, error?: string) {
-    return this.prisma.campaign.update({
-      where: { id },
+  async updateStatus(id: string, workspaceId: string, status: string, progress?: number, error?: string) {
+    return this.prisma.campaign.updateMany({
+      where: { id, workspaceId },
       data: {
         status,
         ...(progress !== undefined && { progress }),
@@ -85,12 +90,12 @@ export class CampaignsService {
     });
   }
 
-  async updateStats(id: string, stats: {
+  async updateStats(id: string, workspaceId: string, stats: {
     totalLeads?: number;
     priorityLeads?: number;
     highQualityLeads?: number;
     averageScore?: number;
   }) {
-    return this.prisma.campaign.update({ where: { id }, data: stats });
+    return this.prisma.campaign.updateMany({ where: { id, workspaceId }, data: stats });
   }
 }

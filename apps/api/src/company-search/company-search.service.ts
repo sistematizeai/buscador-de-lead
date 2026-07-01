@@ -54,9 +54,35 @@ export class CompanySearchService {
   ) {}
 
   async search(dto: CompanySearchDto, meta: SearchMeta) {
-    this.rateLimit.assertAllowed(`company-search:user:${meta.userId}`, 30, 60 * 60 * 1000);
-    this.rateLimit.assertAllowed(`company-search:workspace:${meta.workspaceId}`, 120, 60 * 60 * 1000);
     this.assertUsefulQuery(dto);
+    const isCnpjSearch = Boolean(dto.cnpj?.trim());
+    const action = isCnpjSearch ? "company_search.cnpj" : "company_search.name_address";
+    const userLimit = isCnpjSearch ? 30 : 20;
+    const workspaceLimit = isCnpjSearch ? 100 : 80;
+    await this.rateLimit.assertAllowed({
+      key: `${action}:user:${meta.userId}`,
+      action,
+      scope: "user",
+      limit: userLimit,
+      windowMs: 60 * 60 * 1000,
+      userId: meta.userId,
+      workspaceId: meta.workspaceId,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      endpoint: "POST /company-search",
+    });
+    await this.rateLimit.assertAllowed({
+      key: `${action}:workspace:${meta.workspaceId}`,
+      action,
+      scope: "workspace",
+      limit: workspaceLimit,
+      windowMs: 60 * 60 * 1000,
+      userId: meta.userId,
+      workspaceId: meta.workspaceId,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      endpoint: "POST /company-search",
+    });
 
     const results: CompanySearchResult[] = [];
     const providers: string[] = [];
@@ -121,6 +147,18 @@ export class CompanySearchService {
   }
 
   async saveToCrm(dto: SaveCompanyToCrmDto, meta: SearchMeta) {
+    await this.rateLimit.assertAllowed({
+      key: `company_search.save_to_crm:user:${meta.userId}`,
+      action: "company_search.save_to_crm",
+      scope: "user",
+      limit: 60,
+      windowMs: 60 * 60 * 1000,
+      userId: meta.userId,
+      workspaceId: meta.workspaceId,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      endpoint: "POST /company-search/save-to-crm",
+    });
     const cnpj = dto.cnpj ? normalizeCnpj(dto.cnpj) : null;
     if (cnpj && !isValidCnpj(cnpj)) throw new BadRequestException("CNPJ inválido");
 

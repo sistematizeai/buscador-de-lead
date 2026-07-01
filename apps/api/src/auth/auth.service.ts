@@ -24,8 +24,28 @@ export class AuthService {
     private audit: SecurityAuditService,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, meta: { ipAddress?: string; userAgent?: string } = {}) {
     const email = dto.email.trim().toLowerCase();
+    await this.rateLimit.assertAllowed({
+      key: `register:ip:${meta.ipAddress || "unknown"}`,
+      action: "register",
+      scope: "ip",
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      endpoint: "POST /auth/register",
+    });
+    await this.rateLimit.assertAllowed({
+      key: `register:email:${email}`,
+      action: "register",
+      scope: "email",
+      limit: 3,
+      windowMs: 60 * 60 * 1000,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      endpoint: "POST /auth/register",
+    });
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException("E-mail já cadastrado");
 
@@ -78,8 +98,26 @@ export class AuthService {
 
   async login(dto: LoginDto, meta: { ipAddress?: string; userAgent?: string } = {}) {
     const email = dto.email.trim().toLowerCase();
-    this.rateLimit.assertAllowed(`login:ip:${meta.ipAddress || "unknown"}`, 20, 15 * 60 * 1000);
-    this.rateLimit.assertAllowed(`login:email:${email}`, 8, 15 * 60 * 1000);
+    await this.rateLimit.assertAllowed({
+      key: `login:ip:${meta.ipAddress || "unknown"}`,
+      action: "login",
+      scope: "ip",
+      limit: 5,
+      windowMs: 15 * 60 * 1000,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      endpoint: "POST /auth/login",
+    });
+    await this.rateLimit.assertAllowed({
+      key: `login:email:${email}:ip:${meta.ipAddress || "unknown"}`,
+      action: "login",
+      scope: "email",
+      limit: 5,
+      windowMs: 15 * 60 * 1000,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      endpoint: "POST /auth/login",
+    });
 
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -136,8 +174,26 @@ export class AuthService {
 
   async requestPasswordReset(dto: RequestPasswordResetDto, meta: { ipAddress?: string; userAgent?: string }) {
     const email = dto.email.trim().toLowerCase();
-    this.rateLimit.assertAllowed(`password-reset:email:${email}`, 3, 60 * 60 * 1000);
-    this.rateLimit.assertAllowed(`password-reset:ip:${meta.ipAddress || "unknown"}`, 10, 60 * 60 * 1000);
+    await this.rateLimit.assertAllowed({
+      key: `password-reset:email:${email}`,
+      action: "password_reset.request",
+      scope: "email",
+      limit: 3,
+      windowMs: 30 * 60 * 1000,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      endpoint: "POST /auth/password-reset/request",
+    });
+    await this.rateLimit.assertAllowed({
+      key: `password-reset:ip:${meta.ipAddress || "unknown"}`,
+      action: "password_reset.request",
+      scope: "ip",
+      limit: 10,
+      windowMs: 30 * 60 * 1000,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      endpoint: "POST /auth/password-reset/request",
+    });
 
     const user = await this.prisma.user.findUnique({
       where: { email },
