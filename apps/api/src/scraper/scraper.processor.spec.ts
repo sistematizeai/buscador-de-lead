@@ -170,4 +170,83 @@ describe("ScraperProcessor scrape planning", () => {
 
     expect(provider.scrape).not.toHaveBeenCalled();
   });
+
+  it("preserves social leads with valid profile URLs when extraction has no direct contact", async () => {
+    const instagramProvider = {
+      scrape: vi.fn(async () => [
+        {
+          name: "Moda Fitness BR",
+          address: "Instagram Online",
+          phone: "",
+          website: "",
+          rating: "N/A",
+          hasWebsite: false,
+          referenceLink: "https://www.instagram.com/modafitness",
+          source: "instagram",
+          instagramUrl: "https://www.instagram.com/modafitness",
+          category: "Perfil comercial de moda fitness",
+        },
+      ]),
+    };
+    const campaigns = {
+      updateStatus: vi.fn(),
+      updateStats: vi.fn(),
+    };
+    const leads = {
+      filterNewLeads: vi.fn(async (items: any[]) => items),
+      createMany: vi.fn(),
+    };
+    const leadIntelligence = {
+      scoreLeads: vi.fn((items: any[]) =>
+        items.map((item) => ({
+          ...item,
+          score: 55,
+          priority: "MEDIUM",
+          factors: [],
+          recommendation: "Abordar pelo Instagram",
+          catalogOpportunity: "Possui perfil social ativo",
+        })),
+      ),
+    };
+    const leadExtractor = {
+      extractContacts: vi.fn(async () => ({
+        phone: null,
+        email: null,
+        website: null,
+        isQualified: false,
+        businessName: null,
+        category: null,
+      })),
+    };
+
+    const processor = new ScraperProcessor(
+      campaigns as never,
+      leads as never,
+      leadIntelligence as never,
+      { generateContent: vi.fn() } as never,
+      leadExtractor as never,
+      {} as never,
+      { isAvailable: () => false } as never,
+      instagramProvider as never,
+      {} as never,
+      { get: () => undefined } as never,
+    );
+
+    await processor.process({
+      ...baseJob,
+      source: "instagram",
+      maxResults: 1,
+      searchQueries: ["moda fitness brasil"],
+    });
+
+    expect(leads.createMany).toHaveBeenCalledWith(
+      [expect.objectContaining({
+        name: "Moda Fitness BR",
+        instagramUrl: "https://www.instagram.com/modafitness",
+        rawTextScraped: "Perfil comercial de moda fitness",
+      })],
+      { alreadyDeduped: true },
+    );
+    expect(campaigns.updateStatus).toHaveBeenLastCalledWith("campaign-1", "workspace-1", "completed", 100);
+  });
 });

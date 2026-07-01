@@ -11,6 +11,7 @@ export interface BuildCampaignSearchQueriesInput {
   location: string;
   searchQueries?: string[];
   targetWebsiteMode?: "any" | "missing_website";
+  source?: CampaignSearchSource;
 }
 
 export const CAMPAIGN_SEARCH_SOURCES = ["google_maps", "instagram", "facebook_marketplace"] as const;
@@ -42,6 +43,11 @@ export function buildCampaignSearchQueries(input: BuildCampaignSearchQueriesInpu
   const industry = resolveIndustrySearchTerm(input.industry);
   const region = toSearchText(input.location);
   const manualQueries = (input.searchQueries ?? []).map((query) => query.trim()).filter(Boolean);
+  const source = input.source ?? "google_maps";
+
+  if (source !== "google_maps") {
+    return buildSocialSearchQueries(source, industry, region, manualQueries);
+  }
 
   const targetMissingWebsite = input.targetWebsiteMode === "missing_website";
   const baseQueries = manualQueries.length > 0
@@ -69,6 +75,36 @@ export function buildCampaignSearchQueries(input: BuildCampaignSearchQueriesInpu
 export function resolveIndustrySearchTerm(industry: string) {
   const trimmed = industry.trim();
   return INDUSTRY_SEARCH_TERMS[trimmed] ?? trimmed;
+}
+
+function buildSocialSearchQueries(
+  source: Exclude<CampaignSearchSource, "google_maps">,
+  industry: string,
+  region: string,
+  manualQueries: string[],
+) {
+  const baseQueries = manualQueries.length > 0
+    ? manualQueries
+    : [
+        `${industry} ${region}`,
+        `${industry} loja ${region}`,
+        `${industry} atendimento ${region}`,
+      ];
+  const sourceHints = source === "instagram"
+    ? ["instagram", "perfil", "loja"]
+    : ["marketplace", "facebook", "anuncio"];
+
+  return unique(
+    baseQueries.flatMap((query) => {
+      const cleanQuery = enforceStrictNicheAndRegion(stripCatalogTargeting(query), industry, region);
+      return [
+        cleanQuery,
+        `${cleanQuery} ${sourceHints[0]}`,
+        `${cleanQuery} ${sourceHints[1]}`,
+        `${cleanQuery} ${sourceHints[2]}`,
+      ];
+    }).map((query) => query.replace(/\s+/g, " ").trim()).filter(Boolean),
+  ).slice(0, 8);
 }
 
 export function normalizeCampaignSources(source?: string | string[] | null): CampaignSearchSource[] {
@@ -108,6 +144,14 @@ function ensureMissingWebsiteIntent(query: string, intent: "sem site" | "sem cat
   const normalizedQuery = normalize(query);
   if (normalizedQuery.includes(normalize(intent))) return query;
   return `${query.trim()} ${intent}`;
+}
+
+function stripCatalogTargeting(query: string) {
+  return query
+    .replace(/\bsem\s+site\b/gi, " ")
+    .replace(/\bsem\s+cat\S*logo\s+online\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function toSearchText(value: string) {

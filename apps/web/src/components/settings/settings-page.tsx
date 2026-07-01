@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bot, Check, Database, Key, Loader2, Lock, RefreshCw, Server } from "lucide-react";
+import { Bot, Check, Database, Key, Loader2, Lock, RefreshCw, Search, Server } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ interface RuntimeStatus {
   scraper: { ok: boolean; provider: string; binaryPath: string; message: string };
   auth: { ok: boolean; message: string };
   ai: { configured: boolean; source: string; model: string; baseURL: string | null; message: string };
+  search: { braveSearchConfigured: boolean; message: string };
   app: { appUrl: string; apiUrl: string };
 }
 
@@ -199,6 +200,13 @@ export function SettingsPage() {
                 detail={status.ai.configured ? `Configurada por ${status.ai.source === "settings" ? "Configurações" : "ambiente"}` : status.ai.message}
                 ok={status.ai.configured}
                 warning={!status.ai.configured}
+              />
+              <StatusRow
+                icon={Search}
+                title="Busca social"
+                detail={status.search.message}
+                ok={status.search.braveSearchConfigured}
+                warning={!status.search.braveSearchConfigured}
               />
               <StatusRow icon={Server} title="URLs da aplicação" detail={`${status.app.appUrl} -> ${status.app.apiUrl}`} ok />
             </>

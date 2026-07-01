@@ -76,7 +76,12 @@ export class ScraperProcessor {
               const extracted = await this.leadExtractor.extractContacts(rawText, workspaceId);
 
               if (!extracted.isQualified) {
-                return null;
+                return this.shouldPreserveSocialLead(lead)
+                  ? {
+                      ...lead,
+                      rawTextScraped: rawText,
+                    }
+                  : null;
               }
 
               return {
@@ -195,12 +200,6 @@ export class ScraperProcessor {
   }
 
   private async scrapeLeads(data: ScraperJobData) {
-    const plannedQueries = buildCampaignSearchQueries({
-      industry: data.industry,
-      location: data.location,
-      searchQueries: data.searchQueries,
-      targetWebsiteMode: "any",
-    });
     const selectedSources = normalizeCampaignSources(data.source);
     const targetTotal = Math.max(1, data.maxResults || 20);
     const results: ReturnType<typeof this.normalizeRaw>[] = [];
@@ -214,6 +213,13 @@ export class ScraperProcessor {
 
       for (const source of selectedSources) {
         const provider = this.selectScraperProvider(source);
+        const plannedQueries = buildCampaignSearchQueries({
+          industry: data.industry,
+          location: data.location,
+          searchQueries: data.searchQueries,
+          source,
+          targetWebsiteMode: "any",
+        });
 
         for (const query of plannedQueries) {
           const remaining = targetTotal - results.length;
@@ -523,6 +529,11 @@ export class ScraperProcessor {
 
   private needsAiExtraction(source?: string) {
     return source === "instagram" || source === "facebook_marketplace";
+  }
+
+  private shouldPreserveSocialLead(lead: { source?: string; referenceLink?: string; instagramUrl?: string }) {
+    if (!this.needsAiExtraction(lead.source)) return false;
+    return Boolean(lead.referenceLink || lead.instagramUrl);
   }
 
   private generateMockLeads(data: ScraperJobData, query: string, count: number, source: CampaignSearchSource) {

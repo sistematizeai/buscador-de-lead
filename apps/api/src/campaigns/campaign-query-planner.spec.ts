@@ -70,6 +70,22 @@ describe("campaign-query-planner", () => {
     ]);
   });
 
+  it("removes catalogue-targeting terms from social-source queries", () => {
+    const queries = buildCampaignSearchQueries({
+      industry: "retail",
+      location: "Brasil",
+      searchQueries: ["MODA FITNESS EM TODO BRASIL sem site sem catÃ¡logo online"],
+      source: "instagram",
+      targetWebsiteMode: "missing_website",
+    });
+
+    const joined = queries.join(" ").toLowerCase();
+    expect(queries.length).toBeGreaterThan(0);
+    expect(joined).not.toContain("sem site");
+    expect(joined).not.toContain("sem cat");
+    expect(queries.some((query) => query.toLowerCase().includes("instagram"))).toBe(true);
+  });
+
   it("normalizes multiple selected campaign sources without duplicates", () => {
     expect(normalizeCampaignSources(["instagram", "google_maps", "instagram", "facebook_marketplace"])).toEqual([
       "instagram",

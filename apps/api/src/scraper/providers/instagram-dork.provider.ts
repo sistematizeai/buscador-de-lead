@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { chromium, Browser } from "playwright";
 import type { ScrapedBusiness, ScraperProvider } from "../scraper-provider.interface";
 
@@ -23,6 +24,13 @@ const IG_RESERVED_PATHS = new Set([
   "tv",
 ]);
 
+const SEARCH_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+  Accept: "text/html,application/xhtml+xml",
+};
+
 function normalizeText(value?: string) {
   return (value ?? "")
     .normalize("NFD")
@@ -36,6 +44,136 @@ function tokenize(value?: string) {
   return normalizeText(value)
     .split(/\s+/)
     .filter((token) => token.length > 2);
+}
+
+function buildInstagramDorkQueries(searchQuery: string) {
+  const cleanQuery = stripCatalogTargeting(searchQuery);
+  const compactQuery = cleanQuery
+    .replace(/\b(instagram|perfil|loja)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const importantTokens = tokenize(compactQuery).slice(0, 8).join(" ");
+  const exclusions = "-inurl:/p/ -inurl:/reel/ -inurl:/reels/ -inurl:/explore/ -inurl:/stories/";
+
+  return unique([
+    `site:instagram.com ${cleanQuery} ${exclusions}`,
+    `site:instagram.com "${compactQuery}" ${exclusions}`,
+    importantTokens ? `site:instagram.com ${importantTokens} ${exclusions}` : "",
+    `site:instagram.com ${compactQuery} perfil ${exclusions}`,
+  ].map((query) => query.replace(/\s+/g, " ").trim()).filter(Boolean));
+}
+
+function buildInstagramIndexedQueries(searchQuery: string) {
+  const cleanQuery = stripCatalogTargeting(searchQuery);
+  const compactQuery = cleanQuery
+    .replace(/\b(instagram|perfil|loja)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const importantTokens = tokenize(compactQuery).slice(0, 8).join(" ");
+
+  return unique([
+    `${compactQuery} instagram`,
+    `instagram ${compactQuery}`,
+    `site:instagram.com ${compactQuery}`,
+    importantTokens ? `${importantTokens} instagram` : "",
+  ].map((query) => query.replace(/\s+/g, " ").trim()).filter(Boolean));
+}
+
+function stripCatalogTargeting(query: string) {
+  return query
+    .replace(/\bsite:instagram\.com\b/gi, " ")
+    .replace(/\bsem\s+site\b/gi, " ")
+    .replace(/\bsem\s+cat\S*logo\s+online\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanInstagramLeadName(rawTitle: string, profileUrl: string | null) {
+  const username = profileUrl?.split("/").filter(Boolean).pop() ?? "";
+  let title = rawTitle.replace(/\s+/g, " ").trim();
+
+  if (rawTitle.includes("  ")) {
+    const parts = rawTitle.split(/\s{2,}/).map((part) => part.trim()).filter(Boolean);
+    const businessPart = parts.find((part) => !part.toLowerCase().includes("instagram.com"));
+    if (businessPart) title = businessPart;
+  }
+
+  title = title
+    .replace(/^instagram\s+/i, "")
+    .replace(/^instagram\.com\s*[\u203a>]\s*/i, "")
+    .replace(new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+`, "i"), "")
+    .split("(@")[0]
+    .split("\u2022")[0]
+    .split("|")[0]
+    .split(" - Instagram")[0]
+    .trim();
+
+  return title || username || "Perfil do Instagram";
+}
+
+function decodeHtml(value: string) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+}
+
+function stripHtml(value: string) {
+  return decodeHtml(value.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+}
+
+function normalizeSearchHref(rawHref: string) {
+  const href = decodeHtml(rawHref);
+  if (!href.startsWith("/")) return href;
+
+  try {
+    const parsed = new URL(href, "https://search.brave.com");
+    const target = parsed.searchParams.get("url") || parsed.searchParams.get("uddg");
+    return target ? decodeHtml(target) : href;
+  } catch {
+    return href;
+  }
+}
+
+function extractIndexedInstagramResults(html: string): InstagramSearchResult[] {
+  const anchors = html.matchAll(/<a\b[^>]*href=(?:"([^"]+)"|'([^']+)')[^>]*>([\s\S]*?)<\/a>/gi);
+  const results: InstagramSearchResult[] = [];
+
+  for (const match of anchors) {
+    const link = normalizeSearchHref(match[1] || match[2] || "");
+    if (!link.includes("instagram.com/")) continue;
+    const title = stripHtml(match[3] || "");
+    if (!title) continue;
+    results.push({ title, link, description: title });
+  }
+
+  return results;
+}
+
+function extractBraveApiInstagramResults(payload: unknown): InstagramSearchResult[] {
+  const webResults = (payload as { web?: { results?: Array<{ title?: string; url?: string; description?: string }> } })
+    ?.web?.results ?? [];
+
+  return webResults
+    .map((item) => ({
+      title: item.title?.trim() || "Perfil do Instagram",
+      link: item.url ?? "",
+      description: item.description,
+    }))
+    .filter((item) => item.link.includes("instagram.com/") && item.title);
+}
+
+function unique(values: string[]) {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = normalizeText(value);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function normalizeInstagramProfileUrl(rawUrl: string): string | null {
@@ -115,6 +253,8 @@ export class InstagramDorkProvider implements ScraperProvider {
   private readonly logger = new Logger(InstagramDorkProvider.name);
   private browser: Browser | null = null;
 
+  constructor(private readonly config: ConfigService) {}
+
   private async getBrowser(): Promise<Browser> {
     if (!this.browser || !this.browser.isConnected()) {
       this.browser = await chromium.launch({
@@ -131,14 +271,7 @@ export class InstagramDorkProvider implements ScraperProvider {
 
       const scraped: ScrapedBusiness[] = results.map((res) => {
         const profileUrl = normalizeInstagramProfileUrl(res.link);
-        let name = res.title
-          .split("(@")[0]
-          .split("•")[0]
-          .split("|")[0]
-          .split("-")[0]
-          .trim();
-
-        if (!name) name = "Perfil do Instagram";
+        const name = cleanInstagramLeadName(res.title, profileUrl);
 
         return {
           name,
@@ -194,49 +327,145 @@ export class InstagramDorkProvider implements ScraperProvider {
 
     try {
       const cleanQuery = searchQuery.replace(/[\x00-\x1f<>"'`]/g, "").trim();
-      const dorkQuery = `site:instagram.com "${cleanQuery}" -inurl:/p/ -inurl:/reel/ -inurl:/explore/`;
+      const results: InstagramSearchResult[] = [];
+      const seen = new Set<string>();
 
-      this.logger.log(`Iniciando dorking no DuckDuckGo para Instagram: "${dorkQuery}"`);
+      for (const dorkQuery of buildInstagramDorkQueries(cleanQuery)) {
+        this.logger.log(`Iniciando dorking no DuckDuckGo para Instagram: "${dorkQuery}"`);
 
-      const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(dorkQuery)}`;
-      await page.goto(url, {
-        waitUntil: "domcontentloaded",
-        timeout: 45000,
-      });
+        const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(dorkQuery)}`;
+        const response = await page.goto(url, {
+          waitUntil: "domcontentloaded",
+          timeout: 45000,
+        });
 
-      // Aguarda o container de resultados carregar
-      await page.waitForSelector(".result", { timeout: 10000 }).catch(() => undefined);
+        if (response && [403, 429].includes(response.status())) {
+          this.logger.warn(`DuckDuckGo bloqueou a busca do Instagram com status ${response.status()}; usando fallback.`);
+          continue;
+        }
 
-      const results = await page.$$eval(".result", (elements) => {
-        return elements
-          .map((el) => {
-            const titleEl = el.querySelector(".result__title a");
-            const descriptionEl = el.querySelector(".result__snippet");
-            const rawLink = (titleEl as HTMLAnchorElement)?.href ?? "";
+        // Aguarda o container de resultados carregar
+        await page.waitForSelector(".result", { timeout: 10000 }).catch(() => undefined);
 
-            let link = rawLink;
-            try {
-              if (rawLink.includes("uddg=")) {
-                const urlObj = new URL(rawLink);
-                link = urlObj.searchParams.get("uddg") || rawLink;
+        const pageResults = await page.$$eval(".result", (elements) => {
+          return elements
+            .map((el) => {
+              const titleEl = el.querySelector(".result__title a");
+              const descriptionEl = el.querySelector(".result__snippet");
+              const rawLink = (titleEl as HTMLAnchorElement)?.href ?? "";
+
+              let link = rawLink;
+              try {
+                if (rawLink.includes("uddg=")) {
+                  const urlObj = new URL(rawLink);
+                  link = urlObj.searchParams.get("uddg") || rawLink;
+                }
+              } catch {
+                /* ignore */
               }
-            } catch {
-              /* ignore */
-            }
 
-            const title = titleEl?.textContent?.trim() ?? "";
-            const description = descriptionEl?.textContent?.trim() ?? "";
+              const title = titleEl?.textContent?.trim() ?? "";
+              const description = descriptionEl?.textContent?.trim() ?? "";
 
-            return { title, link, description };
-          })
-          .filter((item) => item.link.includes("instagram.com/") && item.title);
-      });
+              return { title, link, description };
+            })
+            .filter((item) => item.link.includes("instagram.com/") && item.title);
+        });
 
-      this.logger.log(`DuckDuckGo retornou ${results.length} links do Instagram.`);
+        for (const item of pageResults) {
+          const profileUrl = normalizeInstagramProfileUrl(item.link) || item.link;
+          if (seen.has(profileUrl)) continue;
+          seen.add(profileUrl);
+          results.push(item);
+          if (results.length >= maxResults) break;
+        }
+
+        if (results.length >= maxResults) break;
+      }
+
+      this.logger.log(`DuckDuckGo retornou ${results.length} links do Instagram apÃ³s variaÃ§Ãµes.`);
+      if (results.length < maxResults) {
+        const indexedResults = await this.searchBraveInstagramResults(
+          cleanQuery,
+          seen,
+          maxResults - results.length,
+        );
+        results.push(...indexedResults);
+      }
+
       return results.slice(0, maxResults);
     } finally {
       await page.close();
     }
+  }
+
+  private async searchBraveInstagramResults(
+    searchQuery: string,
+    seen: Set<string>,
+    remaining: number,
+  ): Promise<InstagramSearchResult[]> {
+    const results: InstagramSearchResult[] = [];
+
+    for (const indexedQuery of buildInstagramIndexedQueries(searchQuery)) {
+      this.logger.log(`Buscando perfis do Instagram no Brave Search: "${indexedQuery}"`);
+      const url = `https://search.brave.com/search?q=${encodeURIComponent(indexedQuery)}&source=web`;
+
+      try {
+        const apiResults = await this.searchBraveApiInstagramResults(indexedQuery);
+        const pageResults = apiResults.length > 0 ? apiResults : await this.searchPublicBraveInstagramResults(url);
+
+        for (const item of pageResults) {
+          const profileUrl = normalizeInstagramProfileUrl(item.link);
+          if (!profileUrl || seen.has(profileUrl)) continue;
+          seen.add(profileUrl);
+          results.push({ ...item, link: profileUrl });
+          if (results.length >= remaining) break;
+        }
+      } catch (error) {
+        this.logger.warn(`Brave Search falhou para Instagram com "${indexedQuery}": ${error}`);
+      }
+
+      if (results.length >= remaining) break;
+    }
+
+    this.logger.log(`Brave Search retornou ${results.length} perfis validos do Instagram.`);
+    return results;
+  }
+
+  private async searchBraveApiInstagramResults(query: string) {
+    const token = this.config.get<string>("BRAVE_SEARCH_API_KEY") || this.config.get<string>("BRAVE_API_KEY");
+    if (!token) return [];
+
+    const url = new URL("https://api.search.brave.com/res/v1/web/search");
+    url.searchParams.set("q", query);
+    url.searchParams.set("country", "BR");
+    url.searchParams.set("search_lang", "pt");
+    url.searchParams.set("ui_lang", "pt-BR");
+    url.searchParams.set("count", "20");
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": token,
+      },
+    });
+
+    if (!response.ok) {
+      this.logger.warn(`Brave Search API falhou para Instagram com status ${response.status}.`);
+      return [];
+    }
+
+    return extractBraveApiInstagramResults(await response.json());
+  }
+
+  private async searchPublicBraveInstagramResults(url: string) {
+    const response = await fetch(url, { headers: SEARCH_HEADERS });
+    if (!response.ok) {
+      this.logger.warn(`Brave Search publico falhou para Instagram com status ${response.status}.`);
+      return [];
+    }
+
+    return extractIndexedInstagramResults(await response.text());
   }
 
   async close(): Promise<void> {

@@ -59,6 +59,14 @@ export class SettingsService {
         baseURL: savedOpenAiConfig?.baseURL || this.config.get<string>("OPENAI_BASE_URL") || null,
         message: effectiveOpenAiKey.trim().length > 0 ? "Chave de IA configurada" : "Usando fallback local por template",
       },
+      search: {
+        braveSearchConfigured: Boolean(
+          (this.config.get<string>("BRAVE_SEARCH_API_KEY") || this.config.get<string>("BRAVE_API_KEY") || "").trim(),
+        ),
+        message: (this.config.get<string>("BRAVE_SEARCH_API_KEY") || this.config.get<string>("BRAVE_API_KEY") || "").trim()
+          ? "Brave Search API configurada para fontes sociais"
+          : "Fontes sociais usando fallback publico sujeito a bloqueios de buscadores",
+      },
       app: {
         appUrl: this.config.get<string>("NEXT_PUBLIC_APP_URL") || "http://localhost:3000",
         apiUrl: this.config.get<string>("NEXT_PUBLIC_API_URL") || "http://localhost:3001/api",

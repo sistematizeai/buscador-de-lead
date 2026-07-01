@@ -1,11 +1,98 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { chromium, Browser } from "playwright";
+import { ConfigService } from "@nestjs/config";
+import { chromium, Browser, type Page } from "playwright";
 import type { ScrapedBusiness, ScraperProvider } from "../scraper-provider.interface";
+
+const SEARCH_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+  Accept: "text/html,application/xhtml+xml",
+};
+
+function cleanMarketplaceIndexedTitle(rawTitle: string, link: string) {
+  const urlParts = link.split("/").filter(Boolean);
+  const fallback = urlParts[urlParts.length - 1] || "Anuncio do Marketplace";
+  let title = rawTitle.replace(/\s+/g, " ").trim();
+
+  if (rawTitle.includes("  ")) {
+    const parts = rawTitle.split(/\s{2,}/).map((part) => part.trim()).filter(Boolean);
+    const businessPart = parts.find((part) => !part.toLowerCase().includes("facebook.com"));
+    if (businessPart) title = businessPart;
+  }
+
+  title = title
+    .replace(/^facebook\s+marketplace\s+/i, "")
+    .replace(/^facebook\s+/i, "")
+    .replace(/^m?\.?facebook\.com\s*[\u203a>]\s*/i, "")
+    .replace(/^marketplace\s*[\u203a>]\s*/i, "")
+    .trim();
+
+  return title || fallback;
+}
+
+function decodeHtml(value: string) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+}
+
+function stripHtml(value: string) {
+  return decodeHtml(value.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+}
+
+function normalizeSearchHref(rawHref: string) {
+  const href = decodeHtml(rawHref);
+  if (!href.startsWith("/")) return href;
+
+  try {
+    const parsed = new URL(href, "https://search.brave.com");
+    const target = parsed.searchParams.get("url") || parsed.searchParams.get("uddg");
+    return target ? decodeHtml(target) : href;
+  } catch {
+    return href;
+  }
+}
+
+function extractIndexedMarketplaceResults(html: string) {
+  const anchors = html.matchAll(/<a\b[^>]*href=(?:"([^"]+)"|'([^']+)')[^>]*>([\s\S]*?)<\/a>/gi);
+  const results: { title: string; link: string; description: string }[] = [];
+
+  for (const match of anchors) {
+    const rawLink = normalizeSearchHref(match[1] || match[2] || "");
+    const link = rawLink.split("?")[0].replace("://m.facebook.com/", "://www.facebook.com/");
+    if (!link.includes("facebook.com/marketplace/item/")) continue;
+    const title = stripHtml(match[3] || "");
+    if (!title) continue;
+    results.push({ title, link, description: title });
+  }
+
+  return results;
+}
+
+function extractBraveApiMarketplaceResults(payload: unknown) {
+  const webResults = (payload as { web?: { results?: Array<{ title?: string; url?: string; description?: string }> } })
+    ?.web?.results ?? [];
+
+  return webResults
+    .map((item) => ({
+      title: item.title?.trim() || "Anuncio do Marketplace",
+      link: (item.url ?? "").split("?")[0].replace("://m.facebook.com/", "://www.facebook.com/"),
+      description: item.description ?? "",
+    }))
+    .filter((item) => item.link.includes("facebook.com/marketplace/item/") && item.title);
+}
 
 @Injectable()
 export class FacebookMarketplaceProvider implements ScraperProvider {
   private readonly logger = new Logger(FacebookMarketplaceProvider.name);
   private browser: Browser | null = null;
+
+  constructor(private readonly config: ConfigService) {}
 
   private async getBrowser(): Promise<Browser> {
     if (!this.browser || !this.browser.isConnected()) {
@@ -134,6 +221,14 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
 
       this.logger.log(`Filtrados ${scoredItems.length} anúncios mais relevantes para a busca.`);
 
+      if (scoredItems.length === 0) {
+        this.logger.warn("Marketplace nao retornou anuncios visiveis; usando fallback DuckDuckGo indexado.");
+        const indexedLeads = await this.searchIndexedMarketplaceItems(page, cleanQuery, maxResults);
+        await page.close();
+        await context.close();
+        return indexedLeads;
+      }
+
       const finalLeads: ScrapedBusiness[] = [];
       const itemsToScrape = scoredItems.slice(0, Math.min(maxResults, 6)); // Limite de 6 requisições de detalhes para não disparar bans de IP
 
@@ -248,6 +343,14 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
         }
       }
 
+      if (finalLeads.length === 0) {
+        this.logger.warn("Marketplace nao gerou leads nos detalhes; usando fallback DuckDuckGo indexado.");
+        const indexedLeads = await this.searchIndexedMarketplaceItems(page, cleanQuery, maxResults);
+        await page.close();
+        await context.close();
+        return indexedLeads;
+      }
+
       await page.close();
       await context.close();
       return finalLeads;
@@ -259,6 +362,168 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
     }
   }
 
+  private async searchIndexedMarketplaceItems(page: Page, searchQuery: string, maxResults: number): Promise<ScrapedBusiness[]> {
+    const cleanQuery = searchQuery.replace(/\bsem\s+site\b/gi, " ")
+      .replace(/\bsem\s+cat\S*logo\s+online\b/gi, " ")
+      .replace(/\bsite:facebook\.com\/marketplace\/item\b/gi, " ")
+      .replace(/\bfacebook\.com\/marketplace\/item\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const dorkQuery = `site:facebook.com/marketplace/item ${cleanQuery}`;
+    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(dorkQuery)}`;
+
+    this.logger.log(`Buscando Marketplace indexado no DuckDuckGo: "${dorkQuery}"`);
+    const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+
+    const results = response && [403, 429].includes(response.status())
+      ? []
+      : await page.$$eval(".result", (elements) => {
+          return elements
+            .map((el) => {
+              const titleEl = el.querySelector(".result__title a");
+              const descriptionEl = el.querySelector(".result__snippet");
+              const rawLink = (titleEl as HTMLAnchorElement)?.href ?? "";
+
+              let link = rawLink;
+              try {
+                if (rawLink.includes("uddg=")) {
+                  const urlObj = new URL(rawLink);
+                  link = urlObj.searchParams.get("uddg") || rawLink;
+                }
+              } catch {
+                /* ignore */
+              }
+
+              return {
+                title: titleEl?.textContent?.trim() ?? "",
+                link: link.split("?")[0],
+                description: descriptionEl?.textContent?.trim() ?? "",
+              };
+            })
+            .filter((item) => item.link.includes("facebook.com/marketplace/item") && item.title);
+        }).catch(() => []);
+
+    if (response && [403, 429].includes(response.status())) {
+      this.logger.warn(`DuckDuckGo bloqueou Marketplace indexado com status ${response.status()}; usando fallback.`);
+    }
+
+    const seen = new Set<string>();
+    const leads: ScrapedBusiness[] = [];
+
+    for (const item of results) {
+      if (seen.has(item.link)) continue;
+      seen.add(item.link);
+      leads.push({
+        name: cleanMarketplaceIndexedTitle(item.title, item.link).substring(0, 150),
+        address: "Marketplace - Resultado indexado",
+        phone: "",
+        website: "",
+        rating: "N/A",
+        hasWebsite: false,
+        referenceLink: item.link,
+        source: "facebook_marketplace",
+        category: item.description || `Resultado indexado no DuckDuckGo para ${cleanQuery}`,
+      });
+      if (leads.length >= maxResults) break;
+    }
+
+    this.logger.log(`DuckDuckGo retornou ${leads.length} anuncios indexados do Marketplace.`);
+
+    if (leads.length < maxResults) {
+      const braveLeads = await this.searchBraveIndexedMarketplaceItems(
+        cleanQuery,
+        maxResults - leads.length,
+        seen,
+      );
+      leads.push(...braveLeads);
+    }
+
+    return leads;
+  }
+
+  private async searchBraveIndexedMarketplaceItems(
+    searchQuery: string,
+    maxResults: number,
+    seen: Set<string>,
+  ): Promise<ScrapedBusiness[]> {
+    const leads: ScrapedBusiness[] = [];
+    const queries = [
+      `marketplace ${searchQuery} site:facebook.com/marketplace/item`,
+      `facebook.com/marketplace/item ${searchQuery}`,
+      `facebook marketplace ${searchQuery}`,
+    ];
+
+    for (const query of queries) {
+      this.logger.log(`Buscando Marketplace indexado no Brave Search: "${query}"`);
+      const url = `https://search.brave.com/search?q=${encodeURIComponent(query)}&source=web`;
+
+      try {
+        const apiResults = await this.searchBraveApiMarketplaceResults(query);
+        const results = apiResults.length > 0 ? apiResults : await this.searchPublicBraveMarketplaceResults(url);
+
+        for (const item of results) {
+          if (seen.has(item.link)) continue;
+          seen.add(item.link);
+          leads.push({
+            name: cleanMarketplaceIndexedTitle(item.title, item.link).substring(0, 150),
+            address: "Marketplace - Resultado indexado",
+            phone: "",
+            website: "",
+            rating: "N/A",
+            hasWebsite: false,
+            referenceLink: item.link,
+            source: "facebook_marketplace",
+            category: item.description || `Resultado indexado no Brave Search para ${searchQuery}`,
+          });
+          if (leads.length >= maxResults) break;
+        }
+      } catch (error) {
+        this.logger.warn(`Brave Search falhou para Marketplace com "${query}": ${error}`);
+      }
+
+      if (leads.length >= maxResults) break;
+    }
+
+    this.logger.log(`Brave Search retornou ${leads.length} anuncios indexados do Marketplace.`);
+    return leads;
+  }
+
+  private async searchBraveApiMarketplaceResults(query: string) {
+    const token = this.config.get<string>("BRAVE_SEARCH_API_KEY") || this.config.get<string>("BRAVE_API_KEY");
+    if (!token) return [];
+
+    const url = new URL("https://api.search.brave.com/res/v1/web/search");
+    url.searchParams.set("q", query);
+    url.searchParams.set("country", "BR");
+    url.searchParams.set("search_lang", "pt");
+    url.searchParams.set("ui_lang", "pt-BR");
+    url.searchParams.set("count", "20");
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": token,
+      },
+    });
+
+    if (!response.ok) {
+      this.logger.warn(`Brave Search API falhou para Marketplace com status ${response.status}.`);
+      return [];
+    }
+
+    return extractBraveApiMarketplaceResults(await response.json());
+  }
+
+  private async searchPublicBraveMarketplaceResults(url: string) {
+    const response = await fetch(url, { headers: SEARCH_HEADERS });
+    if (!response.ok) {
+      this.logger.warn(`Brave Search publico falhou para Marketplace com status ${response.status}.`);
+      return [];
+    }
+
+    return extractIndexedMarketplaceResults(await response.text());
+  }
+
   async close(): Promise<void> {
     if (this.browser?.isConnected()) {
       await this.browser.close();
@@ -266,4 +531,3 @@ export class FacebookMarketplaceProvider implements ScraperProvider {
     }
   }
 }
-
