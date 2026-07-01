@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Este documento registra o estado implementado dos controles pedidos para uso em producao do Buscador de Lead. Ele cobre rate limit, Broken Object Level Authorization, Broken Access Control, preparacao para RLS e controles LGPD.
+Este documento registra o estado implementado dos controles pedidos para uso em producao do Buscador de Lead. Ele cobre rate limit, Broken Object Level Authorization, Broken Access Control, RLS e controles LGPD.
 
 ## Rate Limit
 
@@ -49,14 +49,27 @@ Permissoes centrais cobertas:
 
 ## RLS
 
-RLS foi preparado como artefato SQL em `docs/sql/rls-policies.template.sql`, mas nao foi ativado automaticamente no banco de producao.
+RLS foi ativado no Supabase para as tabelas tenant principais e filhas:
 
-Motivo tecnico: a aplicacao atual usa Prisma com credencial de aplicacao e filtra tenant no backend. Se RLS for ligada sem definir contexto seguro por transacao, por exemplo `SET LOCAL app.workspace_id`, as queries existentes podem retornar zero registros ou falhar. A ativacao segura exige:
+- `campaigns`, `leads`, `contacts`, `integrations`, `api_keys`;
+- `company_search_logs`, `security_audit_logs`, `security_rate_limit_buckets`;
+- `lead_activities`, `follow_ups`.
 
-- role de aplicacao sem bypass de RLS;
-- role separada para migracao/admin;
-- contexto de tenant definido por request/transacao;
-- testes end-to-end autenticados por tenant antes de aplicar em producao.
+Controles aplicados:
+
+- policies baseadas em `app_security.current_workspace_id()`;
+- `FORCE ROW LEVEL SECURITY` nas tabelas protegidas;
+- role `buscador_lead_app` com `NOBYPASSRLS`;
+- `PrismaService.withWorkspace()` define `app.workspace_id` com `set_config(..., true)` dentro de transacao;
+- services tenant executam leituras e escritas dentro desse contexto.
+
+Validacao executada em 2026-07-01:
+
+- role de app retornou `rolbypassrls=false`;
+- sem `app.workspace_id`, `lead.count()` retornou `0`;
+- com workspace A, a role enxergou apenas os leads do workspace A;
+- consulta ao workspace B dentro do contexto do workspace A retornou `0`;
+- insert/delete de auditoria com contexto de workspace funcionou.
 
 ## LGPD
 

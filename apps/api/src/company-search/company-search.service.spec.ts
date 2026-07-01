@@ -13,6 +13,9 @@ function makeService(prismaOverrides: Record<string, any> = {}) {
     leadActivity: { create: vi.fn().mockResolvedValue({ id: "activity-1" }) },
     ...prismaOverrides,
   };
+  Object.assign(prisma, {
+    withWorkspace: vi.fn((_workspaceId: string, callback: (db: typeof prisma) => unknown) => callback(prisma)),
+  });
   const service = new CompanySearchService(
     prisma as never,
     {} as never,

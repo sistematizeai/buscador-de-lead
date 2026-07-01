@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { SettingsService } from "./settings.service";
 
+function attachWorkspaceMock<T extends Record<string, any>>(prisma: T): T {
+  return Object.assign(prisma, {
+    withWorkspace: vi.fn((_workspaceId: string, callback: (db: T) => unknown) => callback(prisma)),
+  });
+}
+
 describe("SettingsService", () => {
   it("reports personal runtime status for database, scraper, auth, and AI", async () => {
     const prisma = {
@@ -83,7 +89,7 @@ describe("SettingsService", () => {
   });
 
   it("does not expose stored provider API keys when listing integrations", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       integration: {
         findMany: vi.fn().mockResolvedValue([
           {
@@ -99,7 +105,7 @@ describe("SettingsService", () => {
           },
         ]),
       },
-    };
+    });
     const service = new SettingsService(prisma as never, { get: vi.fn() } as never);
 
     await expect(service.getIntegrations("workspace-1")).resolves.toEqual([
@@ -114,7 +120,7 @@ describe("SettingsService", () => {
   });
 
   it("preserves an existing provider API key when saving settings without a new key", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       integration: {
         findFirst: vi.fn().mockResolvedValue({
           id: "integration-1",
@@ -126,7 +132,7 @@ describe("SettingsService", () => {
         }),
         update: vi.fn().mockResolvedValue({ id: "integration-1" }),
       },
-    };
+    });
     const service = new SettingsService(prisma as never, { get: vi.fn() } as never);
 
     await service.upsertIntegration("openai", "OpenAI", {
@@ -149,7 +155,7 @@ describe("SettingsService", () => {
   });
 
   it("does not expose provider API keys in the upsert response", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       integration: {
         findFirst: vi.fn().mockResolvedValue(null),
         create: vi.fn().mockResolvedValue({
@@ -164,7 +170,7 @@ describe("SettingsService", () => {
           },
         }),
       },
-    };
+    });
     const service = new SettingsService(prisma as never, { get: vi.fn() } as never);
 
     await expect(service.upsertIntegration("openai", "OpenAI", {
@@ -196,11 +202,11 @@ describe("SettingsService", () => {
   });
 
   it("deletes API keys only when they belong to the current workspace", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       apiKey: {
         deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
-    };
+    });
     const service = new SettingsService(prisma as never, { get: vi.fn() } as never);
 
     await service.deleteApiKey("key-1", "workspace-1");
@@ -218,11 +224,11 @@ describe("SettingsService", () => {
       expiresAt: null,
       createdAt: new Date("2026-07-01T00:00:00.000Z"),
     });
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       apiKey: {
         create,
       },
-    };
+    });
     const service = new SettingsService(prisma as never, { get: vi.fn() } as never);
 
     const result = await service.createApiKey("Automacao", "workspace-1");

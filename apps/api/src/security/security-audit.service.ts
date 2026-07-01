@@ -13,6 +13,8 @@ export interface AuditEventInput {
   metadata?: Record<string, unknown>;
 }
 
+type AuditPrismaClient = Pick<PrismaService, "securityAuditLog">;
+
 @Injectable()
 export class SecurityAuditService {
   private readonly logger = new Logger(SecurityAuditService.name);
@@ -21,7 +23,7 @@ export class SecurityAuditService {
 
   async record(input: AuditEventInput) {
     try {
-      await this.prisma.securityAuditLog.create({
+      const createAuditLog = (db: AuditPrismaClient) => db.securityAuditLog.create({
         data: {
           event: input.event,
           outcome: input.outcome ?? "success",
@@ -33,6 +35,11 @@ export class SecurityAuditService {
           metadata: input.metadata as Prisma.InputJsonValue | undefined,
         },
       });
+      if (input.workspaceId) {
+        await this.prisma.withWorkspace(input.workspaceId, createAuditLog);
+      } else {
+        await createAuditLog(this.prisma);
+      }
     } catch (error) {
       this.logger.warn(`Falha ao registrar auditoria ${input.event}: ${error}`);
     }

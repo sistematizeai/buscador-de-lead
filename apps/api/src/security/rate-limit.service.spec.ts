@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RateLimitService } from "./rate-limit.service";
 
 function makePrisma() {
-  return {
+  const prisma = {
     $queryRaw: vi.fn(),
   };
+  return Object.assign(prisma, {
+    withWorkspace: vi.fn((_workspaceId: string, callback: (db: typeof prisma) => unknown) => callback(prisma)),
+  });
 }
 
 function makeAudit() {

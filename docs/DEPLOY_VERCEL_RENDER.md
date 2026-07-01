@@ -41,6 +41,10 @@ NEXT_PUBLIC_API_URL=https://buscador-lead-api.onrender.com/api
 CORS_ALLOWED_ORIGINS=https://seu-projeto.vercel.app
 ```
 
+Para producao com RLS ativo, `DATABASE_URL` e `DIRECT_URL` devem usar a role de aplicacao
+`buscador_lead_app` com `NOBYPASSRLS`. Nao use a role admin `postgres` no backend publico,
+porque ela tem bypass de RLS no Supabase.
+
 Variáveis de IA no Render:
 
 ```env

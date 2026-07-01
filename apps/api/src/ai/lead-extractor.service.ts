@@ -23,9 +23,11 @@ export class LeadExtractorService {
 
   private async resolveProviderConfig(workspaceId?: string) {
     if (workspaceId) {
-      const integration = await this.prisma.integration.findFirst({
-        where: { workspaceId, type: "openai", enabled: true },
-      });
+      const integration = await this.prisma.withWorkspace(workspaceId, (db) =>
+        db.integration.findFirst({
+          where: { workspaceId, type: "openai", enabled: true },
+        }),
+      );
       const savedConfig = integration?.config as Record<string, string> | undefined;
       if (savedConfig?.apiKey?.trim()) {
         return {

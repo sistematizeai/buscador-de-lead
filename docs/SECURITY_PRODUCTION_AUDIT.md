@@ -98,7 +98,7 @@ Módulo novo:
   - `NEXT_PUBLIC_API_URL`
   - `NEXT_PUBLIC_APP_URL`
 - E-mail transacional: pendente para envio real de reset de senha.
-- RLS no banco: pendente. A aplicação já aplica isolamento por `workspaceId`, mas RLS no Supabase exige desenho de roles/session variables separado para não conflitar com Prisma.
+- RLS no banco: aplicado com role de aplicação sem `BYPASSRLS`, policies por workspace e contexto transacional `app.workspace_id`.
 - WAF/alertas/backups: dependem de configuração cloud fora do código.
 
 ## Checklist pré-produção
@@ -117,12 +117,12 @@ Módulo novo:
 | Status Potencial Cliente | Concluído |
 | Aplicar schema no banco remoto | Pendente até `prisma db push` |
 | Provedor real de e-mail | Pendente |
-| RLS Supabase | Pendente |
+| RLS Supabase | Ativo |
 | WAF/monitoramento externo | Pendente |
 
 ## Riscos residuais
 
 - Rate limit em memória é suficiente para uma instância Render Free, mas deve migrar para Redis/Upstash se houver múltiplas instâncias.
 - Reset de senha precisa de provedor de e-mail para uso final em produção.
-- RLS não foi ativado no banco porque a aplicação usa Prisma com credenciais de app; ativar RLS sem session variables quebraria queries existentes.
+- RLS foi ativado no banco depois de adaptar o Prisma para executar operações tenant com `app.workspace_id` transacional.
 - Busca por nome/endereço sem CNPJ atualmente usa dados internos do tenant. Provedores externos por nome/endereço devem ser adicionados com contrato/API licenciada, timeout, cache e rate limit.

@@ -15,13 +15,19 @@ vi.mock("openai", () => ({
   })),
 }));
 
+function attachWorkspaceMock<T extends Record<string, any>>(prisma: T): T {
+  return Object.assign(prisma, {
+    withWorkspace: vi.fn((_workspaceId: string, callback: (db: T) => unknown) => callback(prisma)),
+  });
+}
+
 describe("MarketingAiService", () => {
   beforeEach(() => {
     createCompletionMock.mockReset();
   });
 
   it("prefers the saved workspace AI integration over environment values", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       integration: {
         findFirst: vi.fn().mockResolvedValue({
           config: {
@@ -31,7 +37,7 @@ describe("MarketingAiService", () => {
           },
         }),
       },
-    };
+    });
     const config = {
       get: vi.fn((key: string) => ({
         OPENAI_API_KEY: "env-key",
@@ -49,11 +55,11 @@ describe("MarketingAiService", () => {
   });
 
   it("falls back to environment AI settings when no workspace integration exists", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       integration: {
         findFirst: vi.fn().mockResolvedValue(null),
       },
-    };
+    });
     const config = {
       get: vi.fn((key: string) => ({
         OPENAI_API_KEY: "env-key",
@@ -71,7 +77,7 @@ describe("MarketingAiService", () => {
   });
 
   it("generates Portuguese fallback outreach content for Portuguese campaigns", () => {
-    const prisma = { integration: { findFirst: vi.fn() } };
+    const prisma = attachWorkspaceMock({ integration: { findFirst: vi.fn() } });
     const config = { get: vi.fn() };
     const service = new MarketingAiService(config as never, prisma as never);
 
@@ -106,11 +112,11 @@ describe("MarketingAiService", () => {
         },
       }],
     });
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       integration: {
         findFirst: vi.fn().mockResolvedValue(null),
       },
-    };
+    });
     const config = {
       get: vi.fn((key: string) => ({
         OPENAI_API_KEY: "env-key",

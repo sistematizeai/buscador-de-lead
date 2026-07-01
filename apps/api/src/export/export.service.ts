@@ -21,11 +21,13 @@ export class ExportService {
   constructor(private prisma: PrismaService) {}
 
   async getLeads(workspaceId = DEFAULT_WORKSPACE_ID, campaignId?: string) {
-    return this.prisma.lead.findMany({
-      where: { workspaceId, ...(campaignId && { campaignId }) },
-      orderBy: [{ priority: "asc" }, { score: "desc" }],
-      include: { campaign: { select: { name: true } } },
-    });
+    return this.prisma.withWorkspace(workspaceId, (db) =>
+      db.lead.findMany({
+        where: { workspaceId, ...(campaignId && { campaignId }) },
+        orderBy: [{ priority: "asc" }, { score: "desc" }],
+        include: { campaign: { select: { name: true } } },
+      }),
+    );
   }
 
   toCsv(leads: Awaited<ReturnType<typeof this.getLeads>>): string {

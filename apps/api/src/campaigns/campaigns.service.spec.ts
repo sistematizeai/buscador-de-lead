@@ -1,12 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import { CampaignsService } from "./campaigns.service";
 
+function attachWorkspaceMock<T extends Record<string, any>>(prisma: T): T {
+  return Object.assign(prisma, {
+    withWorkspace: vi.fn((_workspaceId: string, callback: (db: T) => unknown) => callback(prisma)),
+  });
+}
+
 describe("CampaignsService", () => {
   it("stores a precise region and strict search queries without leaking regionConfig to Prisma", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       workspace: { upsert: vi.fn().mockResolvedValue({}) },
       campaign: { create: vi.fn().mockResolvedValue({ id: "campaign-1" }) },
-    };
+    });
     const service = new CampaignsService(prisma as never);
 
     await service.create({
@@ -43,12 +49,12 @@ describe("CampaignsService", () => {
   });
 
   it("updates campaigns using id and workspace together", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       campaign: {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findFirst: vi.fn().mockResolvedValue({ id: "campaign-1", workspaceId: "workspace-1" }),
       },
-    };
+    });
     const service = new CampaignsService(prisma as never);
 
     await service.update("campaign-1", { name: "Campanha segura" }, "workspace-1");
@@ -60,11 +66,11 @@ describe("CampaignsService", () => {
   });
 
   it("deletes campaigns using id and workspace together", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       campaign: {
         deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
-    };
+    });
     const service = new CampaignsService(prisma as never);
 
     await service.remove("campaign-1", "workspace-1");

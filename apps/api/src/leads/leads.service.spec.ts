@@ -1,9 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { LeadsService } from "./leads.service";
 
+function attachWorkspaceMock<T extends Record<string, any>>(prisma: T): T {
+  return Object.assign(prisma, {
+    withWorkspace: vi.fn((_workspaceId: string, callback: (db: T) => unknown) => callback(prisma)),
+  });
+}
+
 describe("LeadsService duplicate protection", () => {
   it("does not create leads that already exist in the same workspace", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       lead: {
         findMany: vi.fn().mockResolvedValue([
           {
@@ -17,7 +23,7 @@ describe("LeadsService duplicate protection", () => {
         ]),
         createMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
-    };
+    });
     const service = new LeadsService(prisma as never);
 
     await service.createMany([
@@ -54,12 +60,12 @@ describe("LeadsService duplicate protection", () => {
   });
 
   it("deduplicates repeated leads inside the same import batch", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       lead: {
         findMany: vi.fn().mockResolvedValue([]),
         createMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
-    };
+    });
     const service = new LeadsService(prisma as never);
 
     await service.createMany([
@@ -90,12 +96,12 @@ describe("LeadsService duplicate protection", () => {
   });
 
   it("writes a deterministic database dedupe key when creating leads", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       lead: {
         findMany: vi.fn().mockResolvedValue([]),
         createMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
-    };
+    });
     const service = new LeadsService(prisma as never);
 
     await service.createMany([
@@ -121,7 +127,7 @@ describe("LeadsService duplicate protection", () => {
   });
 
   it("checks existing duplicate leads inside each workspace represented in the batch", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       lead: {
         findMany: vi.fn(async ({ where }: any) => {
           if (where.workspaceId === "workspace-1") {
@@ -156,7 +162,7 @@ describe("LeadsService duplicate protection", () => {
         }),
         createMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
-    };
+    });
     const service = new LeadsService(prisma as never);
 
     await service.createMany([
@@ -204,7 +210,7 @@ describe("LeadsService duplicate protection", () => {
   });
 
   it("updates CRM status using lead id and workspace together", async () => {
-    const prisma = {
+    const prisma = attachWorkspaceMock({
       lead: {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findFirst: vi.fn().mockResolvedValue({ id: "lead-1", workspaceId: "workspace-1", crmStatus: "contacted" }),
@@ -212,7 +218,7 @@ describe("LeadsService duplicate protection", () => {
       leadActivity: {
         create: vi.fn().mockResolvedValue({ id: "activity-1" }),
       },
-    };
+    });
     const service = new LeadsService(prisma as never);
 
     await service.updateCrm("lead-1", { crmStatus: "contacted" }, "workspace-1");

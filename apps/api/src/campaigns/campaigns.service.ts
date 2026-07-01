@@ -11,19 +11,23 @@ export class CampaignsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(workspaceId = DEFAULT_WORKSPACE_ID) {
-    return this.prisma.campaign.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: "desc" },
-      include: { _count: { select: { leads: true } } },
-    });
+    return this.prisma.withWorkspace(workspaceId, (db) =>
+      db.campaign.findMany({
+        where: { workspaceId },
+        orderBy: { createdAt: "desc" },
+        include: { _count: { select: { leads: true } } },
+      }),
+    );
   }
 
   async findOne(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
-    const campaign = await this.prisma.campaign.findFirst({
-      where: { id, workspaceId },
-      include: { _count: { select: { leads: true } } },
-    });
-    if (!campaign) throw new NotFoundException(`Campanha ${id} não encontrada`);
+    const campaign = await this.prisma.withWorkspace(workspaceId, (db) =>
+      db.campaign.findFirst({
+        where: { id, workspaceId },
+        include: { _count: { select: { leads: true } } },
+      }),
+    );
+    if (!campaign) throw new NotFoundException(`Campanha ${id} nao encontrada`);
     return campaign;
   }
 
@@ -43,51 +47,59 @@ export class CampaignsService {
       targetWebsiteMode: _targetWebsiteMode ?? "missing_website",
     });
 
-    await this.prisma.workspace.upsert({
-      where: { id: workspaceId },
-      create: { id: workspaceId, name: "Workspace padrão", slug: "default" },
-      update: {},
-    });
-    return this.prisma.campaign.create({
-      data: {
-        ...campaignData,
-        location,
-        searchQueries,
-        maxResults: dto.maxResults ?? 20,
-        contentStyle: dto.contentStyle ?? "balanced",
-        language: dto.language ?? "portuguese",
-        source: selectedSources.join(","),
-        workspaceId,
-      },
+    return this.prisma.withWorkspace(workspaceId, async (db) => {
+      await db.workspace.upsert({
+        where: { id: workspaceId },
+        create: { id: workspaceId, name: "Workspace padrao", slug: "default" },
+        update: {},
+      });
+      return db.campaign.create({
+        data: {
+          ...campaignData,
+          location,
+          searchQueries,
+          maxResults: dto.maxResults ?? 20,
+          contentStyle: dto.contentStyle ?? "balanced",
+          language: dto.language ?? "portuguese",
+          source: selectedSources.join(","),
+          workspaceId,
+        },
+      });
     });
   }
 
   async update(id: string, dto: UpdateCampaignDto, workspaceId = DEFAULT_WORKSPACE_ID) {
-    const updated = await this.prisma.campaign.updateMany({
-      where: { id, workspaceId },
-      data: dto,
-    });
-    if (updated.count !== 1) throw new NotFoundException(`Campanha ${id} nÃ£o encontrada`);
+    const updated = await this.prisma.withWorkspace(workspaceId, (db) =>
+      db.campaign.updateMany({
+        where: { id, workspaceId },
+        data: dto,
+      }),
+    );
+    if (updated.count !== 1) throw new NotFoundException(`Campanha ${id} nao encontrada`);
     return this.findOne(id, workspaceId);
   }
 
   async remove(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
-    const deleted = await this.prisma.campaign.deleteMany({ where: { id, workspaceId } });
-    if (deleted.count !== 1) throw new NotFoundException(`Campanha ${id} nÃ£o encontrada`);
+    const deleted = await this.prisma.withWorkspace(workspaceId, (db) =>
+      db.campaign.deleteMany({ where: { id, workspaceId } }),
+    );
+    if (deleted.count !== 1) throw new NotFoundException(`Campanha ${id} nao encontrada`);
     return { id };
   }
 
   async updateStatus(id: string, workspaceId: string, status: string, progress?: number, error?: string) {
-    return this.prisma.campaign.updateMany({
-      where: { id, workspaceId },
-      data: {
-        status,
-        ...(progress !== undefined && { progress }),
-        ...(error && { error }),
-        ...(status === "running" && { startedAt: new Date() }),
-        ...(status === "completed" && { completedAt: new Date() }),
-      },
-    });
+    return this.prisma.withWorkspace(workspaceId, (db) =>
+      db.campaign.updateMany({
+        where: { id, workspaceId },
+        data: {
+          status,
+          ...(progress !== undefined && { progress }),
+          ...(error && { error }),
+          ...(status === "running" && { startedAt: new Date() }),
+          ...(status === "completed" && { completedAt: new Date() }),
+        },
+      }),
+    );
   }
 
   async updateStats(id: string, workspaceId: string, stats: {
@@ -96,6 +108,8 @@ export class CampaignsService {
     highQualityLeads?: number;
     averageScore?: number;
   }) {
-    return this.prisma.campaign.updateMany({ where: { id, workspaceId }, data: stats });
+    return this.prisma.withWorkspace(workspaceId, (db) =>
+      db.campaign.updateMany({ where: { id, workspaceId }, data: stats }),
+    );
   }
 }

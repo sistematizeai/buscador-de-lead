@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateCrmDto } from "./dto/update-crm.dto";
 import {
@@ -16,7 +17,7 @@ const CRM_LABELS: Record<string, string> = {
   contacted: "Contatado",
   qualified: "Qualificado",
   proposal: "Proposta Enviada",
-  negotiation: "Negociação",
+  negotiation: "Negociacao",
   won: "Ganho",
   not_interested: "Sem Interesse",
   lost: "Perdido",
@@ -62,50 +63,49 @@ export class LeadsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(workspaceId = DEFAULT_WORKSPACE_ID, campaignId?: string) {
-    return this.prisma.lead.findMany({
-      where: { workspaceId, ...(campaignId && { campaignId }) },
-      orderBy: [{ priority: "asc" }, { score: "desc" }],
-      include: {
-        activities: { orderBy: { createdAt: "desc" }, take: 5 },
-        campaign: { select: { id: true, name: true } },
-      },
-    });
+    return this.prisma.withWorkspace(workspaceId, (db) =>
+      db.lead.findMany({
+        where: { workspaceId, ...(campaignId && { campaignId }) },
+        orderBy: [{ priority: "asc" }, { score: "desc" }],
+        include: {
+          activities: { orderBy: { createdAt: "desc" }, take: 5 },
+          campaign: { select: { id: true, name: true } },
+        },
+      }),
+    );
   }
 
   async findOne(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
-    const lead = await this.prisma.lead.findFirst({
-      where: { id, workspaceId },
-      include: {
-        activities: { orderBy: { createdAt: "desc" } },
-        campaign: { select: { id: true, name: true } },
-        followUps: { where: { done: false }, orderBy: { scheduledAt: "asc" } },
-      },
-    });
-    if (!lead) throw new NotFoundException(`Lead ${id} não encontrado`);
+    const lead = await this.prisma.withWorkspace(workspaceId, (db) => this.findOneInWorkspace(db, id, workspaceId));
+    if (!lead) throw new NotFoundException(`Lead ${id} nao encontrado`);
     return lead;
   }
 
   async updateCrm(id: string, dto: UpdateCrmDto, workspaceId = DEFAULT_WORKSPACE_ID) {
     const now = new Date();
-    const updated = await this.prisma.lead.updateMany({
-      where: { id, workspaceId },
-      data: {
-        ...dto,
-        ...(dto.crmStatus === "contacted" && { contactedAt: now }),
-        ...(dto.crmStatus === "qualified" && { repliedAt: now }),
-        ...(["won", "lost"].includes(dto.crmStatus ?? "") && { closedAt: now }),
-      },
+    const lead = await this.prisma.withWorkspace(workspaceId, async (db) => {
+      const updated = await db.lead.updateMany({
+        where: { id, workspaceId },
+        data: {
+          ...dto,
+          ...(dto.crmStatus === "contacted" && { contactedAt: now }),
+          ...(dto.crmStatus === "qualified" && { repliedAt: now }),
+          ...(["won", "lost"].includes(dto.crmStatus ?? "") && { closedAt: now }),
+        },
+      });
+      if (updated.count !== 1) throw new NotFoundException(`Lead ${id} nao encontrado`);
+      await db.leadActivity.create({
+        data: {
+          leadId: id,
+          type: "crm_update",
+          note: `Status alterado para ${CRM_LABELS[dto.crmStatus ?? ""] ?? dto.crmStatus}`,
+          metadata: dto as object,
+        },
+      });
+      return this.findOneInWorkspace(db, id, workspaceId);
     });
-    if (updated.count !== 1) throw new NotFoundException(`Lead ${id} nÃ£o encontrado`);
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId: id,
-        type: "crm_update",
-        note: `Status alterado para ${CRM_LABELS[dto.crmStatus ?? ""] ?? dto.crmStatus}`,
-        metadata: dto as object,
-      },
-    });
-    return this.findOne(id, workspaceId);
+    if (!lead) throw new NotFoundException(`Lead ${id} nao encontrado`);
+    return lead;
   }
 
   async createMany(leads: LeadCreateInput[], options: { alreadyDeduped?: boolean } = {}) {
@@ -115,7 +115,16 @@ export class LeadsService {
       return { count: 0 };
     }
 
-    return this.prisma.lead.createMany({ data: this.withDedupeKeys(newLeads), skipDuplicates: true });
+    const grouped = this.groupLeadsByWorkspace(this.withDedupeKeys(newLeads));
+    const results = await Promise.all(
+      Array.from(grouped.entries()).map(([workspaceId, workspaceLeads]) =>
+        this.prisma.withWorkspace(workspaceId, (db) =>
+          db.lead.createMany({ data: workspaceLeads, skipDuplicates: true }),
+        ),
+      ),
+    );
+
+    return { count: results.reduce((total, result) => total + result.count, 0) };
   }
 
   async filterNewLeads<T extends LeadCreateInput>(leads: T[]): Promise<T[]> {
@@ -126,22 +135,24 @@ export class LeadsService {
     const existingKeysByWorkspace = new Map(
       await Promise.all(
         Array.from(leadsByWorkspace.entries()).map(async ([workspaceId, workspaceLeads]) => {
-          const existingLeads = await this.prisma.lead.findMany({
-            where: {
-              workspaceId,
-              OR: this.buildDuplicateLookupConditions(workspaceLeads),
-            },
-            select: {
-              name: true,
-              address: true,
-              phone: true,
-              website: true,
-              instagramUrl: true,
-              referenceUrl: true,
-              dedupeKey: true,
-              cnpj: true,
-            },
-          });
+          const existingLeads = await this.prisma.withWorkspace(workspaceId, (db) =>
+            db.lead.findMany({
+              where: {
+                workspaceId,
+                OR: this.buildDuplicateLookupConditions(workspaceLeads),
+              },
+              select: {
+                name: true,
+                address: true,
+                phone: true,
+                website: true,
+                instagramUrl: true,
+                referenceUrl: true,
+                dedupeKey: true,
+                cnpj: true,
+              },
+            }),
+          );
 
           return [workspaceId, new Set(existingLeads.flatMap((lead) => this.getLeadDuplicateKeys(lead)))] as const;
         }),
@@ -151,6 +162,17 @@ export class LeadsService {
     return uniqueLeads.filter((lead) => {
       const existingKeys = existingKeysByWorkspace.get(lead.workspaceId);
       return !this.getLeadDuplicateKeys(lead).some((key) => existingKeys?.has(key));
+    });
+  }
+
+  private findOneInWorkspace(db: Prisma.TransactionClient, id: string, workspaceId: string) {
+    return db.lead.findFirst({
+      where: { id, workspaceId },
+      include: {
+        activities: { orderBy: { createdAt: "desc" } },
+        campaign: { select: { id: true, name: true } },
+        followUps: { where: { done: false }, orderBy: { scheduledAt: "asc" } },
+      },
     });
   }
 

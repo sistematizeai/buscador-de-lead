@@ -17,7 +17,7 @@ cofre.
 | --- | --- | --- |
 | Tokens de deploy/API foram compartilhados em chat | Critico | Rotacao manual necessaria |
 | Sessao do frontend fica em `localStorage` | Alto | Risco documentado; migrar para HttpOnly/BFF |
-| RLS do Supabase nao esta aplicado | Alto | Template existe; aplicacao depende de isolamento no backend |
+| RLS do Supabase aplicado com role sem bypass | Reduzido | Policies ativas e API usando contexto transacional por workspace |
 | API keys internas eram gravadas em texto puro | Alto | Corrigido para hash em novas chaves |
 | Headers de seguranca do frontend nao estavam definidos | Medio | Corrigido no `next.config.ts` |
 | Cadastro aceitava senha mais fraca que reset | Medio | Corrigido para politica forte |
@@ -43,7 +43,7 @@ cofre.
 
 - Banco usa schema Prisma com tabelas multitenant contendo `workspaceId`.
 - Existe indice unico por workspace para dedupe de leads.
-- RLS nao deve ser ligado diretamente sem role de aplicacao e contexto `app.workspace_id` por request.
+- RLS foi ligado com role de aplicacao `NOBYPASSRLS` e contexto `app.workspace_id` por transacao.
 - Storage Supabase nao e usado pelo codigo atual; regras de bucket devem ser verificadas no painel se algum bucket existir.
 
 ## F. Segredos e tokens
@@ -58,7 +58,7 @@ cofre.
 - JWT inclui `workspaceId` e `sessionVersion`.
 - `JwtGuard` valida membership real do usuario no workspace.
 - Campanhas, leads, exportacao, settings, company search e scraper filtram por workspace.
-- RLS continua pendente como segunda camada de defesa.
+- RLS esta ativo como segunda camada de defesa para tabelas tenant principais e filhas.
 
 ## H. LGPD e governanca
 
@@ -133,6 +133,6 @@ pnpm db:health
 
 - Nenhum sistema deve ser declarado 100% seguro.
 - `localStorage` para JWT segue como risco ate migracao de sessao.
-- RLS ainda nao aplicado no Supabase.
+- RLS aplicado no Supabase em 2026-07-01; manter validacao apos novas migracoes.
 - Aceite legal ainda nao e historificado em tabela propria.
 - Scraping pode sofrer bloqueio, captcha, termos de plataforma e variacao de disponibilidade.

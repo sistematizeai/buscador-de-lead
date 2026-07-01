@@ -22,6 +22,8 @@ interface PersistedBucket {
   resetAt: Date;
 }
 
+type RateLimitPrismaClient = Pick<PrismaService, "$queryRaw">;
+
 @Injectable()
 export class RateLimitService {
   constructor(
@@ -32,7 +34,7 @@ export class RateLimitService {
   async assertAllowed(rule: RateLimitRule) {
     const now = new Date();
     const nextResetAt = new Date(now.getTime() + rule.windowMs);
-    const [bucket] = await this.prisma.$queryRaw<PersistedBucket[]>`
+    const incrementBucket = (db: RateLimitPrismaClient) => db.$queryRaw<PersistedBucket[]>`
       INSERT INTO security_rate_limit_buckets
         (
           "key",
@@ -82,6 +84,9 @@ export class RateLimitService {
         "updated_at" = ${now}
       RETURNING "count", "reset_at" AS "resetAt"
     `;
+    const [bucket] = rule.workspaceId
+      ? await this.prisma.withWorkspace(rule.workspaceId, incrementBucket)
+      : await incrementBucket(this.prisma);
 
     if (!bucket || bucket.count <= rule.limit) {
       return;

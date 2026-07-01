@@ -106,16 +106,18 @@ export class CompanySearchService {
     if (internalResults.length) providers.push("tenant_database");
 
     const status = results.length ? "found" : "not_found";
-    const log = await this.prisma.companySearchLog.create({
-      data: {
-        workspaceId: meta.workspaceId,
-        userId: meta.userId,
-        query: this.sanitizeQuery(dto),
-        provider: providers.length ? providers.join(",") : "none",
-        status,
-        resultId: results[0]?.id,
-      },
-    });
+    const log = await this.prisma.withWorkspace(meta.workspaceId, (db) =>
+      db.companySearchLog.create({
+        data: {
+          workspaceId: meta.workspaceId,
+          userId: meta.userId,
+          query: this.sanitizeQuery(dto),
+          provider: providers.length ? providers.join(",") : "none",
+          status,
+          resultId: results[0]?.id,
+        },
+      }),
+    );
 
     await this.audit.record({
       event: "company_search",
@@ -139,11 +141,13 @@ export class CompanySearchService {
   }
 
   async history(workspaceId: string) {
-    return this.prisma.companySearchLog.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
+    return this.prisma.withWorkspace(workspaceId, (db) =>
+      db.companySearchLog.findMany({
+        where: { workspaceId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+    );
   }
 
   async saveToCrm(dto: SaveCompanyToCrmDto, meta: SearchMeta) {
@@ -172,51 +176,55 @@ export class CompanySearchService {
       };
     }
 
-    const created = await this.prisma.lead.create({
-      data: {
-        workspaceId: meta.workspaceId,
-        name: dto.companyName,
-        tradeName: dto.tradeName,
-        cnpj,
-        businessStatus: dto.businessStatus,
-        industry: dto.industry,
-        cnae: dto.cnae,
-        address: dto.address,
-        zipCode: dto.zipCode,
-        phone: dto.phone,
-        email: dto.email,
-        website: dto.website,
-        hasWebsite: Boolean(dto.website),
-        source: "company_search",
-        searchOrigin: "Busca de Empresa",
-        searchProvider: dto.searchProvider || "manual",
-        referenceUrl: dto.sourceReference,
-        crmStatus: "potential_customer",
-        crmNotes: dto.notes,
-        tags: dto.tags ?? [],
-        dedupeKey: buildLeadDedupeKey({
+    const created = await this.prisma.withWorkspace(meta.workspaceId, async (db) => {
+      const lead = await db.lead.create({
+        data: {
+          workspaceId: meta.workspaceId,
           name: dto.companyName,
-          address: dto.address,
-          phone: dto.phone,
-          website: dto.website,
+          tradeName: dto.tradeName,
           cnpj,
-        }),
-        priority: "MEDIUM",
-        score: 50,
-      },
-    });
-
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId: created.id,
-        type: "crm_create",
-        note: "Empresa adicionada manualmente ao CRM a partir da busca individual.",
-        metadata: {
-          source: "Busca de Empresa",
-          userId: meta.userId,
-          status: "potential_customer",
+          businessStatus: dto.businessStatus,
+          industry: dto.industry,
+          cnae: dto.cnae,
+          address: dto.address,
+          zipCode: dto.zipCode,
+          phone: dto.phone,
+          email: dto.email,
+          website: dto.website,
+          hasWebsite: Boolean(dto.website),
+          source: "company_search",
+          searchOrigin: "Busca de Empresa",
+          searchProvider: dto.searchProvider || "manual",
+          referenceUrl: dto.sourceReference,
+          crmStatus: "potential_customer",
+          crmNotes: dto.notes,
+          tags: dto.tags ?? [],
+          dedupeKey: buildLeadDedupeKey({
+            name: dto.companyName,
+            address: dto.address,
+            phone: dto.phone,
+            website: dto.website,
+            cnpj,
+          }),
+          priority: "MEDIUM",
+          score: 50,
         },
-      },
+      });
+
+      await db.leadActivity.create({
+        data: {
+          leadId: lead.id,
+          type: "crm_create",
+          note: "Empresa adicionada manualmente ao CRM a partir da busca individual.",
+          metadata: {
+            source: "Busca de Empresa",
+            userId: meta.userId,
+            status: "potential_customer",
+          },
+        },
+      });
+
+      return lead;
     });
 
     await this.audit.record({
@@ -312,14 +320,16 @@ export class CompanySearchService {
 
     if (!filters.length) return [];
 
-    const leads = await this.prisma.lead.findMany({
-      where: {
-        workspaceId,
-        OR: filters,
-      },
-      take: 5,
-      orderBy: { updatedAt: "desc" },
-    });
+    const leads = await this.prisma.withWorkspace(workspaceId, (db) =>
+      db.lead.findMany({
+        where: {
+          workspaceId,
+          OR: filters,
+        },
+        take: 5,
+        orderBy: { updatedAt: "desc" },
+      }),
+    );
 
     return leads.map((lead) => ({
       id: `lead:${lead.id}`,
@@ -341,20 +351,22 @@ export class CompanySearchService {
   }
 
   private async findExistingCrmLead(workspaceId: string, cnpj: string | null, dto: SaveCompanyToCrmDto) {
-    return this.prisma.lead.findFirst({
-      where: {
-        workspaceId,
-        OR: [
-          ...(cnpj ? [{ cnpj }] : []),
-          {
-            AND: [
-              { name: { equals: dto.companyName, mode: "insensitive" } },
-              ...(dto.address ? [{ address: { equals: dto.address, mode: "insensitive" as const } }] : []),
-            ],
-          },
-        ],
-      },
-    });
+    return this.prisma.withWorkspace(workspaceId, (db) =>
+      db.lead.findFirst({
+        where: {
+          workspaceId,
+          OR: [
+            ...(cnpj ? [{ cnpj }] : []),
+            {
+              AND: [
+                { name: { equals: dto.companyName, mode: "insensitive" } },
+                ...(dto.address ? [{ address: { equals: dto.address, mode: "insensitive" as const } }] : []),
+              ],
+            },
+          ],
+        },
+      }),
+    );
   }
 
   private assertUsefulQuery(dto: CompanySearchDto) {

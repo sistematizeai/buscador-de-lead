@@ -23,14 +23,16 @@ export class SettingsService {
     const envOpenAiModel = this.config.get<string>("OPENAI_MODEL") || "gpt-4o-mini";
     const jwtSecret = this.config.get<string>("JWT_SECRET") || "";
     const savedOpenAi = workspaceId
-      ? await this.prisma.integration.findFirst({ where: { workspaceId, type: "openai", enabled: true } })
+      ? await this.prisma.withWorkspace(workspaceId, (db) =>
+          db.integration.findFirst({ where: { workspaceId, type: "openai", enabled: true } }),
+        )
       : null;
     const savedOpenAiConfig = savedOpenAi?.config as Record<string, string> | undefined;
     const effectiveOpenAiKey = savedOpenAiConfig?.apiKey || envOpenAiKey;
     const effectiveOpenAiModel = savedOpenAiConfig?.model || envOpenAiModel;
 
     let databaseOk = false;
-    let databaseMessage = "Falha na conexão com o banco";
+    let databaseMessage = "Falha na conexao com o banco";
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       databaseOk = true;
@@ -64,7 +66,9 @@ export class SettingsService {
   }
 
   async getIntegrations(workspaceId = DEFAULT_WORKSPACE_ID) {
-    const integrations = await this.prisma.integration.findMany({ where: { workspaceId } });
+    const integrations = await this.prisma.withWorkspace(workspaceId, (db) =>
+      db.integration.findMany({ where: { workspaceId } }),
+    );
     return integrations.map((integration) => ({
       ...integration,
       config: this.sanitizeIntegrationConfig(integration.config as Record<string, string> | null),
@@ -77,42 +81,50 @@ export class SettingsService {
     config: Record<string, string>,
     workspaceId = DEFAULT_WORKSPACE_ID,
   ) {
-    const existing = await this.prisma.integration.findFirst({ where: { workspaceId, type } });
-    const nextConfig = this.mergePrivateIntegrationConfig(
-      existing?.config as Record<string, string> | undefined,
-      config,
-    );
+    return this.prisma.withWorkspace(workspaceId, async (db) => {
+      const existing = await db.integration.findFirst({ where: { workspaceId, type } });
+      const nextConfig = this.mergePrivateIntegrationConfig(
+        existing?.config as Record<string, string> | undefined,
+        config,
+      );
 
-    if (existing) {
-      const integration = await this.prisma.integration.update({
-        where: { id: existing.id },
-        data: { config: nextConfig, enabled: true },
-      });
+      if (existing) {
+        const integration = await db.integration.update({
+          where: { id: existing.id },
+          data: { config: nextConfig, enabled: true },
+        });
+        return this.sanitizeIntegration(integration);
+      }
+      const integration = await db.integration.create({ data: { type, name, config: nextConfig, workspaceId } });
       return this.sanitizeIntegration(integration);
-    }
-    const integration = await this.prisma.integration.create({ data: { type, name, config: nextConfig, workspaceId } });
-    return this.sanitizeIntegration(integration);
+    });
   }
 
   async listApiKeys(workspaceId = DEFAULT_WORKSPACE_ID) {
-    return this.prisma.apiKey.findMany({
-      where: { workspaceId },
-      select: { id: true, name: true, lastUsedAt: true, expiresAt: true, createdAt: true },
-    });
+    return this.prisma.withWorkspace(workspaceId, (db) =>
+      db.apiKey.findMany({
+        where: { workspaceId },
+        select: { id: true, name: true, lastUsedAt: true, expiresAt: true, createdAt: true },
+      }),
+    );
   }
 
   async createApiKey(name: string, workspaceId = DEFAULT_WORKSPACE_ID) {
     const key = `px_${randomBytes(32).toString("base64url")}`;
-    const apiKey = await this.prisma.apiKey.create({
-      data: { name, key: this.hashApiKey(key), workspaceId },
-      select: { id: true, name: true, lastUsedAt: true, expiresAt: true, createdAt: true },
-    });
+    const apiKey = await this.prisma.withWorkspace(workspaceId, (db) =>
+      db.apiKey.create({
+        data: { name, key: this.hashApiKey(key), workspaceId },
+        select: { id: true, name: true, lastUsedAt: true, expiresAt: true, createdAt: true },
+      }),
+    );
     return { ...apiKey, key };
   }
 
   async deleteApiKey(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
-    const deleted = await this.prisma.apiKey.deleteMany({ where: { id, workspaceId } });
-    if (deleted.count !== 1) throw new NotFoundException("Chave de API não encontrada");
+    const deleted = await this.prisma.withWorkspace(workspaceId, (db) =>
+      db.apiKey.deleteMany({ where: { id, workspaceId } }),
+    );
+    if (deleted.count !== 1) throw new NotFoundException("Chave de API nao encontrada");
     return { id };
   }
 
