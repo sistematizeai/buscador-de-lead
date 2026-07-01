@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { EncryptionUtil } from "../security/encryption.util";
 import { SettingsService } from "./settings.service";
 
 function attachWorkspaceMock<T extends Record<string, any>>(prisma: T): T {
@@ -141,17 +142,20 @@ describe("SettingsService", () => {
       baseURL: "https://new.example/v1",
     }, "workspace-1");
 
-    expect(prisma.integration.update).toHaveBeenCalledWith({
+    const updatePayload = prisma.integration.update.mock.calls[0][0];
+    expect(updatePayload).toEqual({
       where: { id: "integration-1" },
       data: {
         config: {
-          apiKey: "secret-provider-key",
+          apiKey: expect.stringMatching(/^enc:/),
           model: "new-model",
           baseURL: "https://new.example/v1",
         },
         enabled: true,
       },
     });
+    expect(updatePayload.data.config.apiKey).not.toBe("secret-provider-key");
+    expect(EncryptionUtil.decrypt(updatePayload.data.config.apiKey)).toBe("secret-provider-key");
   });
 
   it("does not expose provider API keys in the upsert response", async () => {
@@ -187,18 +191,21 @@ describe("SettingsService", () => {
       }),
     );
 
-    expect(prisma.integration.create).toHaveBeenCalledWith({
+    const createPayload = prisma.integration.create.mock.calls[0][0];
+    expect(createPayload).toEqual({
       data: {
         type: "openai",
         name: "OpenAI",
         config: {
-          apiKey: "new-secret-provider-key",
+          apiKey: expect.stringMatching(/^enc:/),
           model: "google/gemini-2.5-flash",
           baseURL: "https://openrouter.ai/api/v1",
         },
         workspaceId: "workspace-1",
       },
     });
+    expect(createPayload.data.config.apiKey).not.toBe("new-secret-provider-key");
+    expect(EncryptionUtil.decrypt(createPayload.data.config.apiKey)).toBe("new-secret-provider-key");
   });
 
   it("deletes API keys only when they belong to the current workspace", async () => {
