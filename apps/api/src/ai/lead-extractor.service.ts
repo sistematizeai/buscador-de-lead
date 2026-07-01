@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import OpenAI from "openai";
 import { PrismaService } from "../prisma/prisma.service";
+import { EncryptionUtil } from "../security/encryption.util";
 
 export interface ExtractedLeadData {
   phone: string | null;
@@ -28,7 +29,7 @@ export class LeadExtractorService {
           where: { workspaceId, type: "openai", enabled: true },
         }),
       );
-      const savedConfig = integration?.config as Record<string, string> | undefined;
+      const savedConfig = EncryptionUtil.decryptConfig(integration?.config as Record<string, string> | undefined);
       if (savedConfig?.apiKey?.trim()) {
         return {
           apiKey: savedConfig.apiKey,

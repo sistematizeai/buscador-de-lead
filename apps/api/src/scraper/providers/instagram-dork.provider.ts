@@ -196,41 +196,41 @@ export class InstagramDorkProvider implements ScraperProvider {
       const cleanQuery = searchQuery.replace(/[\x00-\x1f<>"'`]/g, "").trim();
       const dorkQuery = `site:instagram.com "${cleanQuery}" -inurl:/p/ -inurl:/reel/ -inurl:/explore/`;
 
-      this.logger.log(`Iniciando dorking no Google para Instagram: "${dorkQuery}"`);
+      this.logger.log(`Iniciando dorking no DuckDuckGo para Instagram: "${dorkQuery}"`);
 
-      const url = `https://www.google.com/search?q=${encodeURIComponent(dorkQuery)}&num=${maxResults}`;
+      const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(dorkQuery)}`;
       await page.goto(url, {
         waitUntil: "domcontentloaded",
         timeout: 45000,
       });
 
-      await page.waitForSelector("#search", { timeout: 10000 }).catch(() => undefined);
+      // Aguarda o container de resultados carregar
+      await page.waitForSelector(".result", { timeout: 10000 }).catch(() => undefined);
 
-      const results = await page.$$eval("#rso .g, #rso .MjjYud", (elements) => {
+      const results = await page.$$eval(".result", (elements) => {
         return elements
           .map((el) => {
-            const titleEl = el.querySelector("h3");
-            const linkEl = el.querySelector("a[href]");
-            const descriptionSels = [".VwiC3b", ".Yy3h2c", ".yXK7lf", ".MUFPAc", "span"];
-            let description = "";
+            const titleEl = el.querySelector(".result__title a");
+            const descriptionEl = el.querySelector(".result__snippet");
+            const rawLink = (titleEl as HTMLAnchorElement)?.href ?? "";
 
-            for (const sel of descriptionSels) {
-              const descEl = el.querySelector(sel);
-              if (descEl?.textContent?.trim()) {
-                description = descEl.textContent.trim();
-                break;
+            let link = rawLink;
+            try {
+              if (rawLink.includes("uddg=")) {
+                const urlObj = new URL(rawLink);
+                link = urlObj.searchParams.get("uddg") || rawLink;
               }
-            }
+            } catch {}
 
             const title = titleEl?.textContent?.trim() ?? "";
-            const link = (linkEl as HTMLAnchorElement)?.href ?? "";
+            const description = descriptionEl?.textContent?.trim() ?? "";
 
             return { title, link, description };
           })
           .filter((item) => item.link.includes("instagram.com/") && item.title);
       });
 
-      this.logger.log(`Google retornou ${results.length} links do Instagram.`);
+      this.logger.log(`DuckDuckGo retornou ${results.length} links do Instagram.`);
       return results;
     } finally {
       await page.close();

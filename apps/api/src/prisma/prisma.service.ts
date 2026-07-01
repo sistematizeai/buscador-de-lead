@@ -5,7 +5,23 @@ export type WorkspaceTransactionClient = Prisma.TransactionClient;
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  async onModuleInit() { await this.$connect(); }
+  async onModuleInit() {
+    let retries = 5;
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    while (retries > 0) {
+      try {
+        await this.$connect();
+        break;
+      } catch (error) {
+        retries--;
+        if (retries === 0) {
+          throw error;
+        }
+        console.warn(`[PrismaService] Conexão falhou, restam ${retries} tentativas. Re-tentando em breve... Erro: ${error instanceof Error ? error.message : error}`);
+        await delay(3000);
+      }
+    }
+  }
   async onModuleDestroy() { await this.$disconnect(); }
 
   async withWorkspace<T>(

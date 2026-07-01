@@ -4,6 +4,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { resolveGosomBinaryPath } from "../scraper/providers/gosom-google-maps.provider";
+import { EncryptionUtil } from "../security/encryption.util";
 
 const DEFAULT_WORKSPACE_ID = "default-workspace";
 
@@ -27,7 +28,7 @@ export class SettingsService {
           db.integration.findFirst({ where: { workspaceId, type: "openai", enabled: true } }),
         )
       : null;
-    const savedOpenAiConfig = savedOpenAi?.config as Record<string, string> | undefined;
+    const savedOpenAiConfig = EncryptionUtil.decryptConfig(savedOpenAi?.config as Record<string, string> | undefined);
     const effectiveOpenAiKey = savedOpenAiConfig?.apiKey || envOpenAiKey;
     const effectiveOpenAiModel = savedOpenAiConfig?.model || envOpenAiModel;
 
@@ -69,10 +70,13 @@ export class SettingsService {
     const integrations = await this.prisma.withWorkspace(workspaceId, (db) =>
       db.integration.findMany({ where: { workspaceId } }),
     );
-    return integrations.map((integration) => ({
-      ...integration,
-      config: this.sanitizeIntegrationConfig(integration.config as Record<string, string> | null),
-    }));
+    return integrations.map((integration) => {
+      const decryptedConfig = EncryptionUtil.decryptConfig(integration.config as Record<string, string> | null);
+      return {
+        ...integration,
+        config: this.sanitizeIntegrationConfig(decryptedConfig),
+      };
+    });
   }
 
   async upsertIntegration(
@@ -83,20 +87,24 @@ export class SettingsService {
   ) {
     return this.prisma.withWorkspace(workspaceId, async (db) => {
       const existing = await db.integration.findFirst({ where: { workspaceId, type } });
+      const decryptedExisting = EncryptionUtil.decryptConfig(existing?.config as Record<string, string> | undefined);
       const nextConfig = this.mergePrivateIntegrationConfig(
-        existing?.config as Record<string, string> | undefined,
+        decryptedExisting,
         config,
       );
+      const encryptedConfig = EncryptionUtil.encryptConfig(nextConfig);
 
       if (existing) {
         const integration = await db.integration.update({
           where: { id: existing.id },
-          data: { config: nextConfig, enabled: true },
+          data: { config: encryptedConfig, enabled: true },
         });
-        return this.sanitizeIntegration(integration);
+        const decryptedIntegration = { ...integration, config: nextConfig };
+        return this.sanitizeIntegration(decryptedIntegration);
       }
-      const integration = await db.integration.create({ data: { type, name, config: nextConfig, workspaceId } });
-      return this.sanitizeIntegration(integration);
+      const integration = await db.integration.create({ data: { type, name, config: encryptedConfig, workspaceId } });
+      const decryptedIntegration = { ...integration, config: nextConfig };
+      return this.sanitizeIntegration(decryptedIntegration);
     });
   }
 
