@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { existsSync } from "node:fs";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -103,7 +103,11 @@ export class SettingsService {
 
   async createApiKey(name: string, workspaceId = DEFAULT_WORKSPACE_ID) {
     const key = `px_${randomBytes(32).toString("base64url")}`;
-    return this.prisma.apiKey.create({ data: { name, key, workspaceId } });
+    const apiKey = await this.prisma.apiKey.create({
+      data: { name, key: this.hashApiKey(key), workspaceId },
+      select: { id: true, name: true, lastUsedAt: true, expiresAt: true, createdAt: true },
+    });
+    return { ...apiKey, key };
   }
 
   async deleteApiKey(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
@@ -154,6 +158,10 @@ export class SettingsService {
 
   private isPrivateConfigKey(key: string) {
     return /apiKey|api_key|key|secret|token|password/i.test(key);
+  }
+
+  private hashApiKey(key: string) {
+    return `sha256:${createHash("sha256").update(key).digest("hex")}`;
   }
 
   private getScraperStatus(provider: string, gosomAvailable: boolean, gosomBinaryPath: string) {

@@ -26,6 +26,7 @@ export class AuthService {
 
   async register(dto: RegisterDto, meta: { ipAddress?: string; userAgent?: string } = {}) {
     const email = dto.email.trim().toLowerCase();
+    this.assertStrongPassword(dto.password);
     await this.rateLimit.assertAllowed({
       key: `register:ip:${meta.ipAddress || "unknown"}`,
       action: "register",

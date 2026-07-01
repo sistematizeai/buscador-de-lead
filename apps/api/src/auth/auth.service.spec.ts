@@ -36,6 +36,17 @@ function makeService(prismaOverrides: Record<string, any> = {}, configValues: Re
 }
 
 describe("AuthService password reset", () => {
+  it("rejects weak passwords during registration", async () => {
+    const { service } = makeService();
+
+    await expect(service.register({
+      name: "Usuario",
+      email: "user@empresa.com",
+      password: "senhafraca",
+      workspaceName: "Minha Empresa",
+    })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it("returns a neutral message when the e-mail does not exist", async () => {
     const { service, prisma } = makeService({
       user: { findUnique: vi.fn().mockResolvedValue(null) },

@@ -209,4 +209,33 @@ describe("SettingsService", () => {
       where: { id: "key-1", workspaceId: "workspace-1" },
     });
   });
+
+  it("stores only a hash of generated API keys and returns the raw key once", async () => {
+    const create = vi.fn().mockResolvedValue({
+      id: "key-1",
+      name: "Automacao",
+      lastUsedAt: null,
+      expiresAt: null,
+      createdAt: new Date("2026-07-01T00:00:00.000Z"),
+    });
+    const prisma = {
+      apiKey: {
+        create,
+      },
+    };
+    const service = new SettingsService(prisma as never, { get: vi.fn() } as never);
+
+    const result = await service.createApiKey("Automacao", "workspace-1");
+
+    expect(result.key).toMatch(/^px_/);
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        name: "Automacao",
+        key: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+        workspaceId: "workspace-1",
+      },
+      select: { id: true, name: true, lastUsedAt: true, expiresAt: true, createdAt: true },
+    });
+    expect(create.mock.calls[0][0].data.key).not.toBe(result.key);
+  });
 });
