@@ -6,6 +6,7 @@ const appDir = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@leadsync/types"],
+  outputFileTracingRoot: resolve(appDir, "../.."),
   turbopack: {
     root: resolve(appDir, "../.."),
   },

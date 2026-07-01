@@ -75,7 +75,7 @@ Importe o mesmo repositório na Vercel e configure:
 - Framework Preset: Next.js
 - Install Command: vem de `apps/web/vercel.json`
 - Build Command: vem de `apps/web/vercel.json`
-- Output Directory: `.next`
+- Output Directory: deixe em branco/automÃ¡tico para Next.js. NÃ£o force `.next`, porque a Vercel precisa gerar as funÃ§Ãµes serverless internamente.
 
 Variáveis obrigatórias na Vercel:
 
