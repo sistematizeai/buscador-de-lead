@@ -68,7 +68,7 @@ const SEARCH_SOURCE_OPTIONS: Array<{
   {
     value: "instagram",
     label: "Instagram",
-    description: "Perfis comerciais encontrados por dork no Google.",
+    description: "Perfis comerciais encontrados por dork no DuckDuckGo.",
     engine: "IA extrai contatos da bio",
     icon: Instagram,
     activeClass: "border-pink-500 bg-pink-50 text-pink-950 ring-1 ring-pink-500",
